@@ -47,7 +47,11 @@ mvn clean compile install
 
 more examples, see <https://github.com/bluejoe2008/hippo-rpc/blob/master/src/test/scala/hippo/HippoRpcTest.scala>
 
-## HippoRpcEnvFactory
+## using hippo-rpc with spark-rpc
+
+`spark-rpc`, or `kraps-rpc` uses a messaging mechanism to improve the performance of RPC calling.
+
+`HippoRpcEnvFactory` is provided to enable RPC calls on `kraps-rpc`, and stream handling on `hippo-rpc`.
 
 `HippoRpcEnv` enhances `NettyRpcEnv` with stream handling functions, besides RPC messaging
  usage of `HippoRpcEnv` is like that of `NettyRpcEnv`:
