@@ -2,7 +2,6 @@ package hippo
 
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
-import java.util
 import java.util.concurrent.CountDownLatch
 
 import cn.bluejoe.util.ByteBufferUtils._
@@ -83,7 +82,7 @@ class SparkRpcTest {
     }
   }
 
-  val client = clientFactory.createClient("localhost", 1225);
+  val client = clientFactory.createClient("localhost", server.getPort);
 
   @Test
   def test1() {

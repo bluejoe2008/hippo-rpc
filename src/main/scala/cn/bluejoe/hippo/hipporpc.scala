@@ -53,8 +53,6 @@ import scala.concurrent.{Await, ExecutionContext, Future}
   *
   */
 trait ReceiveContext {
-  def extraInput: ByteBuf
-
   def reply[T](response: T, extra: ((ByteBuf) => Unit)*);
 }
 
@@ -174,7 +172,7 @@ object CompleteStream {
   }
 }
 
-trait HippoStreamManager {
+trait HippoRpcHandler {
   def openCompleteStream(): PartialFunction[Any, CompleteStream] = {
     throw new UnsupportedOperationException();
   }
@@ -182,9 +180,13 @@ trait HippoStreamManager {
   def openChunkedStream(): PartialFunction[Any, ChunkedStream] = {
     throw new UnsupportedOperationException();
   }
+
+  def receiveWithStream(extraInput: ByteBuffer, context: ReceiveContext): PartialFunction[Any, Unit] = {
+    throw new UnsupportedOperationException();
+  }
 }
 
-class HippoStreamManagerAdapter(var streamManager: HippoStreamManager) extends StreamManager {
+class HippoStreamManagerAdapter(var handler: HippoRpcHandler) extends StreamManager {
   val streamIdGen = new AtomicLong(System.currentTimeMillis());
   val streams = mutable.Map[Long, ChunkedStream]();
 
@@ -204,7 +206,7 @@ class HippoStreamManagerAdapter(var streamManager: HippoStreamManager) extends S
 
   override def openStream(streamId: String): ManagedBuffer = {
     val request = StreamUtils.deserializeObject(StreamUtils.base64.decode(streamId))
-    streamManager.openCompleteStream()(request).createManagedBuffer();
+    handler.openCompleteStream()(request).createManagedBuffer();
   }
 
   private def _writeNextChunk(buf: ByteBuf, streamId: Long, chunkIndex: Int, stream: ChunkedStream) {
@@ -224,7 +226,7 @@ class HippoStreamManagerAdapter(var streamManager: HippoStreamManager) extends S
 
   def handleOpenStreamRequest(streamRequest: Any, callback: RpcResponseCallback) {
     val streamId: Long = streamIdGen.getAndIncrement();
-    val stream = streamManager.openChunkedStream()(streamRequest)
+    val stream = handler.openChunkedStream()(streamRequest)
     val output = Unpooled.buffer(1024);
     output.writeObject(OpenStreamResponse(streamId, stream.hasNext()));
     if (stream.hasNext()) {
@@ -238,41 +240,42 @@ class HippoStreamManagerAdapter(var streamManager: HippoStreamManager) extends S
     streams(streamId).close
     streams -= streamId
   }
-}
 
-trait HippoRpcHandler extends HippoStreamManager {
-  def receive(ctx: ReceiveContext): PartialFunction[Any, Unit];
+  def handleRequestWithStream(streamRequest: Any, extra: ByteBuffer, callback: RpcResponseCallback): Unit = {
+    val ctx = new ReceiveContext {
+      override def reply[T](response: T, extra: ((ByteBuf) => Unit)*) = {
+        replyBuffer((buf: ByteBuf) => {
+          buf.writeObject(response)
+          extra.foreach(_.apply(buf))
+        })
+      }
+
+      def replyBuffer(writeResponse: ((ByteBuf) => Unit)) = {
+        val output = Unpooled.buffer(1024);
+        writeResponse.apply(output)
+        callback.onSuccess(output.nioBuffer())
+      }
+    }
+
+    handler.receiveWithStream(extra, ctx)(streamRequest)
+  }
 }
 
 object HippoServer extends Logging {
   //WEIRLD: this makes next Upooled.buffer() call run fast
   Unpooled.buffer(1)
 
-  def create(module: String, rpcHandler: HippoRpcHandler, port: Int = -1, host: String = null): HippoServer = {
+  def create(module: String, rpcHandler: HippoRpcHandler, port: Int = 0, host: String = null): HippoServer = {
     val configProvider = new MapConfigProvider(JavaConversions.mapAsJavaMap(Map()))
     val conf: TransportConf = new TransportConf(module, configProvider)
 
     val handler: RpcHandler = new RpcHandler() {
+      val streamManagerAdapter = new HippoStreamManagerAdapter(rpcHandler);
+
+      override def getStreamManager: StreamManager = streamManagerAdapter
 
       override def receive(client: TransportClient, input: ByteBuffer, callback: RpcResponseCallback) {
         try {
-          val ctx = new ReceiveContext {
-            override def reply[T](response: T, extra: ((ByteBuf) => Unit)*) = {
-              replyBuffer((buf: ByteBuf) => {
-                buf.writeObject(response)
-                extra.foreach(_.apply(buf))
-              })
-            }
-
-            def replyBuffer(writeResponse: ((ByteBuf) => Unit)) = {
-              val output = Unpooled.buffer(1024);
-              writeResponse.apply(output)
-              callback.onSuccess(output.nioBuffer())
-            }
-
-            def extraInput: ByteBuf = Unpooled.wrappedBuffer(input)
-          }
-
           val message = input.readObject();
           message match {
             case OpenStreamRequest(streamRequest) =>
@@ -282,7 +285,7 @@ object HippoServer extends Logging {
               streamManagerAdapter.handleCloseStreamRequest(streamId, callback)
 
             case _ => {
-              rpcHandler.receive(ctx)(message)
+              streamManagerAdapter.handleRequestWithStream(message, input, callback)
             }
           }
         }
@@ -290,10 +293,6 @@ object HippoServer extends Logging {
           case e: Throwable => callback.onFailure(e)
         }
       }
-
-      val streamManagerAdapter = new HippoStreamManagerAdapter(rpcHandler);
-
-      override def getStreamManager: StreamManager = streamManagerAdapter
     }
 
     val context: TransportContext = new TransportContext(conf, handler)

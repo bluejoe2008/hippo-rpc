@@ -63,6 +63,6 @@ object SparkRpcServerForTest {
     val confProvider = new MapConfigProvider(JavaConversions.mapAsJavaMap(Map()))
     val conf: TransportConf = new TransportConf("test", confProvider)
     val context: TransportContext = new TransportContext(conf, handler)
-    context.createServer("localhost", 1225, new util.ArrayList())
+    context.createServer("localhost", 0, new util.ArrayList())
   }
 }

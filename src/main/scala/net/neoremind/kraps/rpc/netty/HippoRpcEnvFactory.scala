@@ -112,13 +112,13 @@ class HippoEndpointRef(ref: NettyRpcEndpointRef, rpcEnv: HippoRpcEnv, conf: RpcC
 class HippoRpcEnv(conf: RpcConf, javaSerializerInstance: JavaSerializerInstance, host: String)
   extends NettyRpcEnv(conf, javaSerializerInstance, host) {
 
-  val hippoRpcHandler = new HippoRpcHandler(this._get("dispatcher").asInstanceOf[Dispatcher], this)
+  val hippoRpcHandler = new HippoRpcHandlerAdapter(this._get("dispatcher").asInstanceOf[Dispatcher], this)
   this._set("transportContext", new TransportContext(transportConf, hippoRpcHandler))
 
   def getTransportConf() = transportConf;
 
-  def setStreamManger(streamManager: HippoStreamManager): Unit = {
-    hippoRpcHandler.streamManagerAdapter.streamManager = streamManager;
+  def setStreamManger(handler: HippoRpcHandler): Unit = {
+    hippoRpcHandler.streamManagerAdapter.handler = handler;
   }
 
   override def asyncSetupEndpointRefByURI(uri: String): Future[HippoEndpointRef] = {
@@ -136,18 +136,18 @@ class HippoRpcEnv(conf: RpcConf, javaSerializerInstance: JavaSerializerInstance,
   }
 }
 
-class NullHippoStreamManager extends HippoStreamManager {
+class NullHippoRpcHandler extends HippoRpcHandler {
 
 }
 
-class HippoRpcHandler(dispatcher: Dispatcher, nettyEnv: NettyRpcEnv)
+class HippoRpcHandlerAdapter(dispatcher: Dispatcher, nettyEnv: NettyRpcEnv)
   extends RpcHandler {
   private val log = LoggerFactory.getLogger(classOf[NettyRpcHandler])
 
   // A variable to track the remote RpcEnv addresses of all clients
   private val remoteAddresses = new ConcurrentHashMap[RpcAddress, RpcAddress]()
 
-  val streamManagerAdapter = new HippoStreamManagerAdapter(new NullHippoStreamManager());
+  val streamManagerAdapter = new HippoStreamManagerAdapter(new NullHippoRpcHandler());
 
   override def getStreamManager() = streamManagerAdapter;
 
@@ -162,6 +162,9 @@ class HippoRpcHandler(dispatcher: Dispatcher, nettyEnv: NettyRpcEnv)
 
       case CloseStreamRequest(streamId) =>
         streamManagerAdapter.handleCloseStreamRequest(streamId, callback)
+
+      case _ =>
+        streamManagerAdapter.handleRequestWithStream(messageToDispatch, message, callback)
     }
   }
 

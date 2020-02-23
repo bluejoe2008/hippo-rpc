@@ -1,6 +1,7 @@
 package hippo
 
 import java.io.{File, FileInputStream}
+import java.nio.ByteBuffer
 
 import cn.bluejoe.hippo._
 import cn.bluejoe.util.Profiler._
@@ -41,12 +42,12 @@ object HippoRpcServerForTest {
   var server: HippoServer = _;
   server = HippoServer.create("test", new HippoRpcHandler() {
 
-    override def receive(ctx: ReceiveContext): PartialFunction[Any, Unit] = {
+    override def receiveWithStream(extraInput: ByteBuffer, ctx: ReceiveContext): PartialFunction[Any, Unit] = {
       case SayHelloRequest(msg) =>
         ctx.reply(SayHelloResponse(msg.toUpperCase()))
 
       case PutFileRequest(totalLength) =>
-        ctx.reply(PutFileResponse(ctx.extraInput.readableBytes()))
+        ctx.reply(PutFileResponse(extraInput.remaining()))
     }
 
     override def openChunkedStream(): PartialFunction[Any, ChunkedStream] = {
@@ -96,5 +97,5 @@ object HippoRpcServerForTest {
         */
         CompleteStream.fromFile(server.conf, new File(path));
     }
-  }, 1224)
+  })
 }
