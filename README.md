@@ -25,6 +25,14 @@ Hippo Transport Library enhances spark-commons with easy stream management & han
                      . NNN.I....O.... .. M:. .M,=8..
                       ....,...,.  ..   ...   ..
 
+## build & install
+
+```
+mvn clean compile install
+```
+
+## using hippo-rpc
+
  `HippoServer` enhances TransportServer with stream manager(open, streaming fetch, close)
  ```
    val server = HippoServer.create("test", new HippoRpcHandler() {
@@ -39,10 +47,10 @@ Hippo Transport Library enhances spark-commons with easy stream management & han
 
 more examples, see <https://github.com/bluejoe2008/hippo-rpc/blob/master/src/test/scala/hippo/HippoRpcTest.scala>
 
-# HippoRpcEnvFactory
+## HippoRpcEnvFactory
 
-HippoRpcEnv enhances NettyRpcEnv with stream handling functions, besides RPC messaging
- usage of HippoRpcEnv is like that of NettyRpcEnv:
+`HippoRpcEnv` enhances `NettyRpcEnv` with stream handling functions, besides RPC messaging
+ usage of `HippoRpcEnv` is like that of `NettyRpcEnv`:
 
 ```
    rpcEnv = HippoRpcEnvFactory.create(config)
@@ -54,6 +62,11 @@ HippoRpcEnv enhances NettyRpcEnv with stream handling functions, besides RPC mes
    val endPointRef = rpcEnv.setupEndpointRef(RpcAddress(...), "...");
 ```
 
-# dependencies
+## dependencies
 
-`spark-commons`, `kraps-rpc`
+`spark-commons`: spark common library, https://github.com/apache/spark
+`kraps-rpc`: A RPC framework leveraging Spark RPC module, https://github.com/neoremind/kraps-rpc
+
+## licensing
+
+`hippo-rpc` is licensed under the BSD 2-Clause "Simplified" License.
