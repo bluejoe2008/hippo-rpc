@@ -25,8 +25,19 @@ Hippo Transport Library enhances spark-commons with easy stream management & han
                      . NNN.I....O.... .. M:. .M,=8..
                       ....,...,.  ..   ...   ..
 
- HippoServer enhances TransportServer with stream manager(open, streaming fetch, close)
- HippoClient enhances TransportClient with stream request and result boxing (as Stream[T])
+ `HippoServer` enhances TransportServer with stream manager(open, streaming fetch, close)
+ ```
+   val server = HippoServer.create("test", new HippoRpcHandler() {
+   ...
+   }, 1224)
+
+ ```
+ `HippoClient` enhances TransportClient with stream request and result boxing (as Stream[T])
+ ```
+   val client = HippoClient.create("test", "localhost", 1224)
+ ```
+
+more examples, see <https://github.com/bluejoe2008/hippo-rpc/blob/master/src/test/scala/hippo/HippoRpcTest.scala>
 
 # HippoRpcEnvFactory
 
@@ -42,3 +53,7 @@ HippoRpcEnv enhances NettyRpcEnv with stream handling functions, besides RPC mes
    ...
    val endPointRef = rpcEnv.setupEndpointRef(RpcAddress(...), "...");
 ```
+
+# dependencies
+
+`spark-commons`, `kraps-rpc`
