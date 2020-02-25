@@ -15,7 +15,7 @@ import scala.concurrent.{Await, Future}
 class HippoRpcTest {
   Profiler.enableTiming = true
   val server = HippoRpcServerForTest.server
-  val client = HippoClient.create("test", "localhost", server.getPort())
+  val client = HippoClient.create("test", "localhost", 1224)
 
   @Test
   def testRpc(): Unit = {

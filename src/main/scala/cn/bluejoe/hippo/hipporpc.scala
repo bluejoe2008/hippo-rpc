@@ -1,6 +1,6 @@
 package cn.bluejoe.hippo
 
-import java.io.{File, InputStream}
+import java.io.InputStream
 import java.nio.ByteBuffer
 import java.util
 import java.util.concurrent._
@@ -12,7 +12,7 @@ import cn.bluejoe.util.Profiler._
 import cn.bluejoe.util.{ByteBufferInputStream, Logging, StreamUtils}
 import io.netty.buffer.{ByteBuf, ByteBufInputStream, Unpooled}
 import org.apache.spark.network.TransportContext
-import org.apache.spark.network.buffer.{FileSegmentManagedBuffer, ManagedBuffer, NettyManagedBuffer}
+import org.apache.spark.network.buffer.{ManagedBuffer, NettyManagedBuffer, NioManagedBuffer}
 import org.apache.spark.network.client._
 import org.apache.spark.network.server.{NoOpRpcHandler, RpcHandler, StreamManager, TransportServer}
 import org.apache.spark.network.util.{MapConfigProvider, TransportConf}
@@ -151,24 +151,17 @@ class PooledMessageStream[T](executor: ExecutorService, bufferSize: Int, produce
 
 trait CompleteStream {
   def createManagedBuffer(): ManagedBuffer;
+
+  def createInputStream(): InputStream = createManagedBuffer().createInputStream()
 }
 
 object CompleteStream {
-  def fromFile(conf: TransportConf, file: File, offset: Long, length: Long): CompleteStream = new CompleteStream() {
-    override def createManagedBuffer(): ManagedBuffer =
-      new FileSegmentManagedBuffer(conf, file, offset, length);
+  def fromByteBuffer(buf: ByteBuffer): CompleteStream = new CompleteStream() {
+    override def createManagedBuffer(): ManagedBuffer = new NioManagedBuffer(buf);
   }
 
-  def fromFile(conf: TransportConf, file: File): CompleteStream = {
-    fromFile(conf, file, 0, file.length().toInt);
-  }
-
-  def fromByteBuf(produce: (ByteBuf) => Unit): CompleteStream = new CompleteStream() {
-    override def createManagedBuffer(): ManagedBuffer = {
-      val buf = Unpooled.buffer()
-      produce(buf)
-      new NettyManagedBuffer(buf)
-    }
+  def fromByteBuffer(buf: ByteBuf): CompleteStream = new CompleteStream() {
+    override def createManagedBuffer(): ManagedBuffer = new NettyManagedBuffer(buf);
   }
 }
 
@@ -497,7 +490,7 @@ class HippoClient(client: TransportClient) extends HippoStreamingClient with Hip
   }
 
   private def _getInputStream(streamId: String): InputStream = {
-    val queue = new ArrayBlockingQueue[AnyRef](1);
+    val queue = new ArrayBlockingQueue[AnyRef](5);
     val END_OF_STREAM = new Object
 
     client.stream(streamId, new StreamCallback {

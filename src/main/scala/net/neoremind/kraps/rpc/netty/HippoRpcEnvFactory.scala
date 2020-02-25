@@ -87,17 +87,17 @@ object HippoRpcEnvFactory extends RpcEnvFactory {
   }
 }
 
-class HippoEndpointRef(ref: NettyRpcEndpointRef, rpcEnv: HippoRpcEnv, conf: RpcConf) extends RpcEndpointRef(conf) {
-  override def address: RpcAddress = ref.address
+class HippoEndpointRef(private[netty] val refNetty: NettyRpcEndpointRef, rpcEnv: HippoRpcEnv, conf: RpcConf) extends RpcEndpointRef(conf) {
+  override def address: RpcAddress = refNetty.address
 
-  val streamingClient = new HippoClient(rpcEnv.createClient(ref.address))
+  private[netty] val streamingClient = new HippoClient(rpcEnv.createClient(refNetty.address))
 
   override def ask[T](message: Any, timeout: RpcTimeout)(implicit evidence$1: ClassManifest[T]): Future[T] =
-    ref.ask(message, timeout)(evidence$1)
+    refNetty.ask(message, timeout)(evidence$1)
 
-  override def name: String = ref.name
+  override def name: String = refNetty.name
 
-  override def send(message: Any): Unit = ref.send()
+  override def send(message: Any): Unit = refNetty.send()
 
   def askWithStream[T](message: Any, extra: ((ByteBuf) => Unit)*)(implicit m: Manifest[T]): Future[T] =
     streamingClient.ask(message, extra: _*)
@@ -115,9 +115,7 @@ class HippoRpcEnv(conf: RpcConf, javaSerializerInstance: JavaSerializerInstance,
   val hippoRpcHandler = new HippoRpcHandlerAdapter(this._get("dispatcher").asInstanceOf[Dispatcher], this)
   this._set("transportContext", new TransportContext(transportConf, hippoRpcHandler))
 
-  def getTransportConf() = transportConf;
-
-  def setStreamManger(handler: HippoRpcHandler): Unit = {
+  def setRpcHandler(handler: HippoRpcHandler): Unit = {
     hippoRpcHandler.streamManagerAdapter.handler = handler;
   }
 
@@ -133,6 +131,11 @@ class HippoRpcEnv(conf: RpcConf, javaSerializerInstance: JavaSerializerInstance,
 
   override def setupEndpointRef(address: RpcAddress, endpointName: String): HippoEndpointRef = {
     super.setupEndpointRef(address, endpointName).asInstanceOf[HippoEndpointRef]
+  }
+
+  override def stop(endpointRef: RpcEndpointRef): Unit = {
+    super.stop(endpointRef.asInstanceOf[HippoEndpointRef].refNetty)
+    endpointRef.asInstanceOf[HippoEndpointRef].streamingClient.close()
   }
 }
 

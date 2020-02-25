@@ -60,7 +60,7 @@ more examples, see <https://github.com/bluejoe2008/hippo-rpc/blob/master/src/tes
    rpcEnv = HippoRpcEnvFactory.create(config)
    val endpoint: RpcEndpoint = new FileRpcEndpoint(rpcEnv)
    rpcEnv.setupEndpoint("endpoint-name", endpoint)
-   rpcEnv.setStreamManger(new FileStreamManager())
+   rpcEnv.setRpcHandler(new MyRpcHandler())
    ...
    ...
    val endPointRef = rpcEnv.setupEndpointRef(RpcAddress(...), "...");

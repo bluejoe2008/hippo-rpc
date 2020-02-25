@@ -5,7 +5,7 @@ import java.nio.ByteBuffer
 
 import cn.bluejoe.hippo._
 import cn.bluejoe.util.Profiler._
-import io.netty.buffer.ByteBuf
+import io.netty.buffer.{ByteBuf, Unpooled}
 
 /**
   * Created by bluejoe on 2020/2/22.
@@ -89,13 +89,11 @@ object HippoRpcServerForTest {
 
     override def openCompleteStream(): PartialFunction[Any, CompleteStream] = {
       case ReadFileRequest(path) =>
-        /*
         val fis = new FileInputStream(new File(path))
         val buf = Unpooled.buffer()
         buf.writeBytes(fis.getChannel, new File(path).length().toInt)
-        new NettyManagedBuffer(buf)
-        */
-        CompleteStream.fromFile(server.conf, new File(path));
+
+        CompleteStream.fromByteBuffer(buf);
     }
-  })
+  }, 1224)
 }
