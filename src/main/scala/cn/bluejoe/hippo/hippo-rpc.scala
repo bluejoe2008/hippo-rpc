@@ -258,9 +258,9 @@ object HippoServer extends Logging {
   //WEIRLD: this makes next Upooled.buffer() call run fast
   Unpooled.buffer(1)
 
-  def create(module: String, rpcHandler: HippoRpcHandler, port: Int = 0, host: String = null): HippoServer = {
-    val configProvider = new MapConfigProvider(JavaConversions.mapAsJavaMap(Map()))
-    val conf: TransportConf = new TransportConf(module, configProvider)
+  def create(module: String, config: Map[String, String], rpcHandler: HippoRpcHandler, port: Int = 0, host: String = null): HippoServer = {
+    val configProvider = new MapConfigProvider(JavaConversions.mapAsJavaMap(config))
+    val transportConf: TransportConf = new TransportConf(module, configProvider)
 
     val handler: RpcHandler = new RpcHandler() {
       val streamManagerAdapter = new HippoStreamManagerAdapter(rpcHandler);
@@ -288,71 +288,85 @@ object HippoServer extends Logging {
       }
     }
 
-    val context: TransportContext = new TransportContext(conf, handler)
-    new HippoServer(context.createServer(host, port, new util.ArrayList()), conf)
+    val context: TransportContext = new TransportContext(transportConf, handler)
+    new HippoServer(context.createServer(host, port, new util.ArrayList()))
   }
 }
 
-class HippoServer(server: TransportServer, val conf: TransportConf) {
+class HippoServer(server: TransportServer) {
   def getPort() = server.getPort()
 
   def close() = server.close()
 }
 
-object HippoClient extends Logging {
+object HippoClientFactory extends Logging {
   //WEIRLD: this makes next Upooled.buffer() call run fast
   Unpooled.buffer(1)
 
-  val clientFactoryMap = mutable.Map[String, TransportClientFactory]();
   val executionContext: ExecutionContext = ExecutionContext.global
 
-  def getClientFactory(module: String) = {
-    clientFactoryMap.getOrElseUpdate(module, {
-      val configProvider = new MapConfigProvider(JavaConversions.mapAsJavaMap(Map()))
-      val conf: TransportConf = new TransportConf(module, configProvider)
-      val context: TransportContext = new TransportContext(conf, new NoOpRpcHandler())
-      context.createClientFactory
-    }
-    )
-  }
+  def create(module: String, config: Map[String, String]): HippoClientFactory = {
+    val configProvider = new MapConfigProvider(JavaConversions.mapAsJavaMap(config))
+    val transportConf: TransportConf = new TransportConf(module, configProvider)
+    val context: TransportContext = new TransportContext(transportConf, new NoOpRpcHandler())
 
-  def create(module: String, remoteHost: String, remotePort: Int): HippoClient = {
-    new HippoClient(getClientFactory(module).createClient(remoteHost, remotePort))
+    new HippoClientFactory() {
+      val factory = context.createClientFactory();
+
+      def createClient(host: String, port: Int) = {
+        new HippoClient(factory.createClient(host, port), new HippoClientConfig() {
+          def sendTimeOut(): Duration =
+            Duration(config.getOrElse("hippo.send.timeout", "4s"))
+        })
+      }
+    }
   }
 }
 
+trait HippoClientFactory {
+  def createClient(host: String, port: Int): HippoClient;
+}
+
 trait HippoStreamingClient {
-  def getChunkedStream[T](request: Any)(implicit m: Manifest[T]): Stream[T]
+  def getChunkedStream[T](request: Any, waitStreamTimeout: Duration)(implicit m: Manifest[T]): Stream[T]
 
-  def getInputStream(request: Any): InputStream
+  def getInputStream(request: Any, waitStreamTimeout: Duration): InputStream
 
-  def getChunkedInputStream(request: Any): InputStream
+  def getChunkedInputStream(request: Any, waitStreamTimeout: Duration): InputStream
 }
 
 trait HippoRpcClient {
   def ask[T](message: Any, extra: ((ByteBuf) => Unit)*)(implicit m: Manifest[T]): Future[T]
 }
 
-class HippoClient(client: TransportClient) extends HippoStreamingClient with HippoRpcClient with Logging {
+trait HippoClientConfig {
+  def sendTimeOut(): Duration;
+}
+
+class HippoClient(client: TransportClient, config: HippoClientConfig) extends
+  HippoStreamingClient with HippoRpcClient with Logging {
+
   def close() = client.close()
 
-  def ask[T](message: Any, extra: ((ByteBuf) => Unit)*)(implicit m: Manifest[T]): Future[T] = {
+  val sendTimeout = config.sendTimeOut()
+
+  override def ask[T](message: Any, extra: ((ByteBuf) => Unit)*)(implicit m: Manifest[T]): Future[T] = {
     _sendAndReceive({ buf =>
       buf.writeObject(message)
       extra.foreach(_.apply(buf))
     }, _.readObject().asInstanceOf[T])
   }
 
-  def getInputStream(request: Any): InputStream = {
+  override def getInputStream(request: Any, waitStreamTimeout: Duration): InputStream = {
     _getInputStream(StreamUtils.base64.encodeAsString(
-      StreamUtils.serializeObject(request)))
+      StreamUtils.serializeObject(request)), waitStreamTimeout)
   }
 
-  override def getChunkedInputStream(request: Any): InputStream = {
+  override def getChunkedInputStream(request: Any, waitStreamTimeout: Duration): InputStream = {
     //12ms
     val iter: Iterator[InputStream] = timing(false) {
       _getChunkedStream[InputStream](request, (buf: ByteBuffer) =>
-        new ByteBufferInputStream(buf)).iterator
+        new ByteBufferInputStream(buf), waitStreamTimeout).iterator
     }
 
     //1ms
@@ -368,7 +382,7 @@ class HippoClient(client: TransportClient) extends HippoStreamingClient with Hip
     }
   }
 
-  override def getChunkedStream[T](request: Any)(implicit m: Manifest[T]): Stream[T] = {
+  override def getChunkedStream[T](request: Any, waitStreamTimeout: Duration)(implicit m: Manifest[T]): Stream[T] = {
     val stream = _getChunkedStream(request, { buf =>
       if (buf.hasRemaining) {
         buf.readObject().asInstanceOf[Iterable[T]]
@@ -376,7 +390,7 @@ class HippoClient(client: TransportClient) extends HippoStreamingClient with Hip
       else {
         Iterable.empty[T]
       }
-    })
+    }, waitStreamTimeout)
 
     stream.flatMap(_.toIterable)
   }
@@ -409,8 +423,12 @@ class HippoClient(client: TransportClient) extends HippoStreamingClient with Hip
       latch.countDown();
     }
 
-    def await(): ChunkResponse[T] = {
-      latch.await()
+    def await(timeout: Duration): ChunkResponse[T] = {
+      if (timeout.isFinite())
+        latch.await(timeout.length, timeout.unit)
+      else
+        latch.await()
+
       if (err != null)
         throw err;
 
@@ -440,8 +458,12 @@ class HippoClient(client: TransportClient) extends HippoStreamingClient with Hip
       latch.countDown();
     }
 
-    def await(): T = {
-      latch.await()
+    def await(timeout: Duration): T = {
+      if (timeout.isFinite())
+        latch.await(timeout.length, timeout.unit)
+      else
+        latch.await()
+
       if (err != null)
         throw err;
 
@@ -449,17 +471,17 @@ class HippoClient(client: TransportClient) extends HippoStreamingClient with Hip
     }
   }
 
-  private def _getChunkedStream[T](request: Any, consumeResponse: (ByteBuffer) => T)(implicit m: Manifest[T]): Stream[T] = {
+  private def _getChunkedStream[T](request: Any, consumeResponse: (ByteBuffer) => T, waitStreamTimeout: Duration)(implicit m: Manifest[T]): Stream[T] = {
     //send start stream request
     //2ms
     val OpenStreamResponse(streamId, hasMoreChunks) =
-      Await.result(ask[OpenStreamResponse](OpenStreamRequest(request)), Duration.Inf);
+      Await.result(ask[OpenStreamResponse](OpenStreamRequest(request)), waitStreamTimeout);
 
     if (!hasMoreChunks) {
       Stream.empty[T]
     }
     else {
-      _buildStream(streamId, 0, consumeResponse)
+      _buildStream(streamId, 0, consumeResponse, waitStreamTimeout)
     }
   }
 
@@ -470,26 +492,26 @@ class HippoClient(client: TransportClient) extends HippoStreamingClient with Hip
       consumeResponse(buf))
   }
 
-  private def _buildStream[T](streamId: Long, chunkIndex: Int, consumeResponse: (ByteBuffer) => T): Stream[T] = {
+  private def _buildStream[T](streamId: Long, chunkIndex: Int, consumeResponse: (ByteBuffer) => T, waitStreamTimeout: Duration): Stream[T] = {
     if (logger.isTraceEnabled)
       logger.trace(s"build stream: streamId=$streamId, chunkIndex=$chunkIndex")
 
     val callback = new MyChunkReceivedCallback[T](consumeResponse);
     val ChunkResponse(_, _, hasMoreChunks, values) = timing(false) {
       client.fetchChunk(streamId, chunkIndex, callback)
-      callback.await()
+      callback.await(waitStreamTimeout)
     }
 
     Stream.cons(values,
       if (hasMoreChunks) {
-        _buildStream(streamId, chunkIndex + 1, consumeResponse)
+        _buildStream(streamId, chunkIndex + 1, consumeResponse, waitStreamTimeout)
       }
       else {
         Stream.empty
       })
   }
 
-  private def _getInputStream(streamId: String): InputStream = {
+  private def _getInputStream(streamId: String, waitStreamTimeout: Duration): InputStream = {
     val queue = new ArrayBlockingQueue[AnyRef](5);
     val END_OF_STREAM = new Object
 
@@ -508,7 +530,12 @@ class HippoClient(client: TransportClient) extends HippoStreamingClient with Hip
     })
 
     StreamUtils.concatChunks {
-      val buffer = queue.take()
+      val buffer =
+        if (waitStreamTimeout.isFinite())
+          queue.poll(waitStreamTimeout.length, waitStreamTimeout.unit)
+        else
+          queue.take()
+
       if (buffer == END_OF_STREAM)
         None
       else {
@@ -517,14 +544,15 @@ class HippoClient(client: TransportClient) extends HippoStreamingClient with Hip
     }
   }
 
-  private def _sendAndReceive[T](produceRequest: (ByteBuf) => Unit, consumeResponse: (ByteBuffer) => T)(implicit m: Manifest[T]): Future[T] = {
+  private def _sendAndReceive[T](produceRequest: (ByteBuf) => Unit, consumeResponse: (ByteBuffer) => T)
+                                (implicit m: Manifest[T]): Future[T] = {
     val buf = Unpooled.buffer(1024)
     produceRequest(buf)
     val callback = new MyRpcResponseCallback[T](consumeResponse);
     client.sendRpc(buf.nioBuffer, callback)
-    implicit val ec: ExecutionContext = HippoClient.executionContext
+    implicit val ec: ExecutionContext = HippoClientFactory.executionContext
     Future {
-      callback.await()
+      callback.await(Duration.Inf)
     }
   }
 }

@@ -10,11 +10,11 @@ import cn.bluejoe.util.Profiler._
 import io.netty.buffer.Unpooled
 import org.apache.commons.io.IOUtils
 import org.apache.spark.network.TransportContext
-import org.apache.spark.network.buffer.{ManagedBuffer, NioManagedBuffer}
+import org.apache.spark.network.buffer.ManagedBuffer
 import org.apache.spark.network.client.{ChunkReceivedCallback, RpcResponseCallback, StreamCallback, TransportClient}
-import org.apache.spark.network.server.{NoOpRpcHandler, RpcHandler, StreamManager}
+import org.apache.spark.network.server.{NoOpRpcHandler, TransportServer}
 import org.apache.spark.network.util.{MapConfigProvider, TransportConf}
-import org.junit.{Assert, Test}
+import org.junit.{After, Assert, Before, Test}
 
 import scala.collection.JavaConversions
 import scala.collection.mutable.ArrayBuffer
@@ -23,7 +23,7 @@ import scala.collection.mutable.ArrayBuffer
   * Created by bluejoe on 2020/2/14.
   */
 class SparkRpcTest {
-  val server = SparkRpcServerForTest.server
+
   Profiler.enableTiming = true
   val confProvider = new MapConfigProvider(JavaConversions.mapAsJavaMap(Map()))
 
@@ -82,7 +82,20 @@ class SparkRpcTest {
     }
   }
 
-  val client = clientFactory.createClient("localhost", server.getPort);
+  var server: TransportServer = null
+  var client: TransportClient = null
+
+  @Before
+  def setup(): Unit = {
+    server = SparkRpcServerForTest.createServer()
+    client = clientFactory.createClient("localhost", server.getPort);
+  }
+
+  @After
+  def teardown() = {
+    server.close()
+    client.close()
+  }
 
   @Test
   def test1() {

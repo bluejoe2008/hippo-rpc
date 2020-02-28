@@ -2,20 +2,32 @@ package hippo
 
 import java.io.{File, FileInputStream}
 
-import cn.bluejoe.hippo.HippoClient
+import cn.bluejoe.hippo.{HippoClient, HippoClientFactory, HippoServer}
 import cn.bluejoe.util.Profiler
 import cn.bluejoe.util.Profiler._
 import io.netty.buffer.ByteBuf
 import org.apache.commons.io.IOUtils
-import org.junit.{Assert, Test}
+import org.junit.{After, Assert, Before, Test}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 
 class HippoRpcTest {
   Profiler.enableTiming = true
-  val server = HippoRpcServerForTest.server
-  val client = HippoClient.create("test", "localhost", 1224)
+  var server: HippoServer = null
+  var client: HippoClient = null;
+
+  @Before
+  def setup(): Unit = {
+    server = HippoRpcServerForTest.createServer()
+    client = HippoClientFactory.create("test", Map()).createClient("localhost", 1224)
+  }
+
+  @After
+  def after(): Unit = {
+    server.close()
+    client.close()
+  }
 
   @Test
   def testRpc(): Unit = {
@@ -31,11 +43,12 @@ class HippoRpcTest {
   @Test
   def testPutFile(): Unit = {
     val res = timing(true, 10) {
-      Await.result(client.ask[PutFileResponse](PutFileRequest(new File("./testdata/inputs/9999999").length().toInt), (buf: ByteBuf) => {
-        val fos = new FileInputStream(new File("./testdata/inputs/9999999"));
-        buf.writeBytes(fos.getChannel, new File("./testdata/inputs/9999999").length().toInt)
-        fos.close()
-      }), Duration.Inf)
+      Await.result(client.ask[PutFileResponse](PutFileRequest(new File("./testdata/inputs/9999999").length().toInt),
+        (buf: ByteBuf) => {
+          val fos = new FileInputStream(new File("./testdata/inputs/9999999"));
+          buf.writeBytes(fos.getChannel, new File("./testdata/inputs/9999999").length().toInt)
+          fos.close()
+        }), Duration.Inf)
     }
 
     Assert.assertEquals(new File("./testdata/inputs/9999999").length(), res.written)
@@ -46,7 +59,7 @@ class HippoRpcTest {
     Await.result(client.ask[SayHelloResponse](SayHelloRequest("hello")), Duration.Inf)
 
     val results = timing(true, 10) {
-      client.getChunkedStream[String](GetManyResultsRequest(100, 10, "hello"))
+      client.getChunkedStream[String](GetManyResultsRequest(100, 10, "hello"), Duration.Inf)
     }.toArray
 
     Assert.assertEquals(results(0), "hello-1")
@@ -54,7 +67,7 @@ class HippoRpcTest {
     Assert.assertEquals(100 * 10, results.length)
 
     val results2 = timing(true, 10) {
-      client.getChunkedStream[String](GetBufferedResultsRequest(100)).toArray
+      client.getChunkedStream[String](GetBufferedResultsRequest(100), Duration.Inf).toArray
     }
 
     Assert.assertEquals(results2(0), "hello-1")
@@ -68,7 +81,7 @@ class HippoRpcTest {
     Await.result(client.ask[SayHelloResponse](SayHelloRequest("hello")), Duration.Inf)
 
     timing(true, 10) {
-      val is = client.getInputStream(ReadFileRequest("./testdata/inputs/9999999"));
+      val is = client.getInputStream(ReadFileRequest("./testdata/inputs/9999999"), Duration.Inf);
       var read = 0;
       while (read != -1) {
         read = is.read()
@@ -77,22 +90,22 @@ class HippoRpcTest {
 
     Assert.assertArrayEquals(
       IOUtils.toByteArray(new FileInputStream(new File("./testdata/inputs/999"))),
-      IOUtils.toByteArray(client.getInputStream(ReadFileRequest("./testdata/inputs/999")))
+      IOUtils.toByteArray(client.getInputStream(ReadFileRequest("./testdata/inputs/999"), Duration.Inf))
     );
 
     Assert.assertArrayEquals(
       IOUtils.toByteArray(new FileInputStream(new File("./testdata/inputs/999"))),
-      IOUtils.toByteArray(client.getChunkedInputStream(ReadFileRequest("./testdata/inputs/999")))
+      IOUtils.toByteArray(client.getChunkedInputStream(ReadFileRequest("./testdata/inputs/999"), Duration.Inf))
     );
 
     Assert.assertArrayEquals(
       IOUtils.toByteArray(new FileInputStream(new File("./testdata/inputs/9999999"))),
-      IOUtils.toByteArray(client.getInputStream(ReadFileRequest("./testdata/inputs/9999999")))
+      IOUtils.toByteArray(client.getInputStream(ReadFileRequest("./testdata/inputs/9999999"), Duration.Inf))
     );
 
     Assert.assertArrayEquals(
       IOUtils.toByteArray(new FileInputStream(new File("./testdata/inputs/9999999"))),
-      IOUtils.toByteArray(client.getChunkedInputStream(ReadFileRequest("./testdata/inputs/9999999")))
+      IOUtils.toByteArray(client.getChunkedInputStream(ReadFileRequest("./testdata/inputs/9999999"), Duration.Inf))
     );
 
     for (size <- Array(999, 9999, 99999, 999999, 9999999)) {
@@ -100,12 +113,12 @@ class HippoRpcTest {
 
       println(s"getInputStream(): size=$size")
       timing(true, 10) {
-        IOUtils.toByteArray(client.getInputStream(ReadFileRequest(s"./testdata/inputs/$size")))
+        IOUtils.toByteArray(client.getInputStream(ReadFileRequest(s"./testdata/inputs/$size"), Duration.Inf))
       }
 
       println(s"getChunkedInputStream(): size=$size")
       timing(true, 10) {
-        IOUtils.toByteArray(client.getChunkedInputStream(ReadFileRequest(s"./testdata/inputs/$size")))
+        IOUtils.toByteArray(client.getChunkedInputStream(ReadFileRequest(s"./testdata/inputs/$size"), Duration.Inf))
       }
 
       println("=================================")
@@ -117,7 +130,7 @@ class HippoRpcTest {
     timing(true) {
       val futures = (1 to 5).map { _ =>
         Future {
-          IOUtils.toByteArray(client.getInputStream(ReadFileRequest("./testdata/inputs/9999999")))
+          IOUtils.toByteArray(client.getInputStream(ReadFileRequest("./testdata/inputs/9999999"), Duration.Inf))
         }
       }
 

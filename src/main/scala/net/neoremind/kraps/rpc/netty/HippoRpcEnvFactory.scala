@@ -18,6 +18,7 @@ import org.apache.spark.network.server.RpcHandler
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
+import scala.concurrent.duration.Duration
 import scala.util.control.NonFatal
 
 /**
@@ -87,10 +88,16 @@ object HippoRpcEnvFactory extends RpcEnvFactory {
   }
 }
 
-class HippoEndpointRef(private[netty] val refNetty: NettyRpcEndpointRef, rpcEnv: HippoRpcEnv, conf: RpcConf) extends RpcEndpointRef(conf) {
+class HippoEndpointRef(private[netty] val refNetty: NettyRpcEndpointRef, rpcEnv: HippoRpcEnv, conf: RpcConf)
+  extends RpcEndpointRef(conf) {
   override def address: RpcAddress = refNetty.address
 
-  private[netty] val streamingClient = new HippoClient(rpcEnv.createClient(refNetty.address))
+  private[netty] val streamingClient = new HippoClient(rpcEnv.createClient(refNetty.address), new HippoClientConfig {
+    override def sendTimeOut(): Duration = Duration(conf.get("hippo.send.timeout", "4s"))
+  })
+
+  override def ask[T](message: Any)(implicit evidence$1: ClassManifest[T]): Future[T] =
+    refNetty.ask(message)(evidence$1)
 
   override def ask[T](message: Any, timeout: RpcTimeout)(implicit evidence$1: ClassManifest[T]): Future[T] =
     refNetty.ask(message, timeout)(evidence$1)
@@ -102,11 +109,14 @@ class HippoEndpointRef(private[netty] val refNetty: NettyRpcEndpointRef, rpcEnv:
   def askWithStream[T](message: Any, extra: ((ByteBuf) => Unit)*)(implicit m: Manifest[T]): Future[T] =
     streamingClient.ask(message, extra: _*)
 
-  def getChunkedStream[T](request: Any)(implicit m: Manifest[T]): Stream[T] = streamingClient.getChunkedStream(request)
+  def getChunkedStream[T](request: Any, waitStreamTimeout: Duration)(implicit m: Manifest[T]): Stream[T] =
+    streamingClient.getChunkedStream(request, waitStreamTimeout)
 
-  def getInputStream(request: Any): InputStream = streamingClient.getInputStream(request)
+  def getInputStream(request: Any, waitStreamTimeout: Duration): InputStream =
+    streamingClient.getInputStream(request, waitStreamTimeout)
 
-  def getChunkedInputStream(request: Any): InputStream = streamingClient.getChunkedInputStream(request)
+  def getChunkedInputStream(request: Any, waitStreamTimeout: Duration): InputStream =
+    streamingClient.getChunkedInputStream(request, waitStreamTimeout)
 }
 
 class HippoRpcEnv(conf: RpcConf, javaSerializerInstance: JavaSerializerInstance, host: String)

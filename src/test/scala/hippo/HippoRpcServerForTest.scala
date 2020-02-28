@@ -39,8 +39,7 @@ case class GetBufferedResultsRequest(total: Int) {
 }
 
 object HippoRpcServerForTest {
-  var server: HippoServer = _;
-  server = HippoServer.create("test", new HippoRpcHandler() {
+  def createServer() = HippoServer.create("test", Map(), new HippoRpcHandler() {
 
     override def receiveWithStream(extraInput: ByteBuffer, ctx: ReceiveContext): PartialFunction[Any, Unit] = {
       case SayHelloRequest(msg) =>

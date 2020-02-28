@@ -16,7 +16,7 @@ import scala.collection.JavaConversions
   * Created by bluejoe on 2020/2/23.
   */
 object SparkRpcServerForTest {
-  val server = {
+  def createServer() = {
     val handler: RpcHandler = new RpcHandler() {
       override def receive(client: TransportClient, message: ByteBuffer, callback: RpcResponseCallback) {
         if (false) {
