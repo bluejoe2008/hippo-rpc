@@ -2,6 +2,11 @@
 
 Hippo Transport Library enhances spark-commons with easy stream management & handling
 
+[![GitHub issues](https://img.shields.io/github/issues/bluejoe2008/hippo-rpc.svg)](https://github.com/bluejoe2008/hippo-rpc/issues)
+[![GitHub forks](https://img.shields.io/github/forks/bluejoe2008/hippo-rpc.svg)](https://github.com/bluejoe2008/hippo-rpc/network)
+[![GitHub stars](https://img.shields.io/github/stars/bluejoe2008/hippo-rpc.svg)](https://github.com/bluejoe2008/hippo-rpc/stargazers)
+[![GitHub license](https://img.shields.io/github/license/bluejoe2008/hippo-rpc.svg)](https://github.com/bluejoe2008/hippo-rpc/blob/master/LICENSE)
+
 
                     ,.I ....
                   ... ZO.. .. M  .
