@@ -4,11 +4,16 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>cn.bluejoe</groupId>
+    <groupId>org.grapheco</groupId>
     <artifactId>hippo-rpc</artifactId>
     <version>0.1.0</version>
 
     <dependencies>
+        <dependency>
+            <groupId>org.grapheco</groupId>
+            <artifactId>commons</artifactId>
+            <version>0.9</version>
+        </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>
             <artifactId>spark-network-common_2.11</artifactId>
@@ -70,15 +75,6 @@
                         </configuration>
                     </execution>
                 </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.21.0</version>
-                <configuration>
-                    <!-- Tests will be run with scalatest-maven-plugin instead -->
-                    <skipTests>false</skipTests>
-                </configuration>
             </plugin>
         </plugins>
     </build>

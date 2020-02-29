@@ -2,9 +2,9 @@ package util
 
 import java.nio.ByteBuffer
 
-import cn.bluejoe.util.ByteBufferUtils._
-import cn.bluejoe.util.Profiler
-import cn.bluejoe.util.Profiler._
+import org.grapheco.hippo.util.ByteBufferUtils._
+import org.grapheco.commons.util.Profiler
+import org.grapheco.commons.util.Profiler._
 import io.netty.buffer.Unpooled
 import org.apache.spark.network.buffer.NioManagedBuffer
 import org.junit.{Assert, Test}

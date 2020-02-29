@@ -1,4 +1,4 @@
-package cn.bluejoe.util
+package org.grapheco.commons.util
 
 /**
   * Created by bluejoe on 2020/2/7.

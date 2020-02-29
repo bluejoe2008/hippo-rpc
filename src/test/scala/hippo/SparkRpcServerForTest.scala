@@ -2,7 +2,7 @@ package hippo
 
 import java.nio.ByteBuffer
 import java.util
-import cn.bluejoe.util.ByteBufferUtils._
+import org.grapheco.hippo.util.ByteBufferUtils._
 import io.netty.buffer.Unpooled
 import org.apache.spark.network.TransportContext
 import org.apache.spark.network.buffer.{NioManagedBuffer, ManagedBuffer}

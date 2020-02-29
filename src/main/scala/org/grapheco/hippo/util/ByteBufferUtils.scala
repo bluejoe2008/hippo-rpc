@@ -1,9 +1,10 @@
-package cn.bluejoe.util
+package org.grapheco.hippo.util
 
 import java.io.{IOException, InputStream}
 import java.nio.ByteBuffer
 
 import io.netty.buffer.{ByteBuf, ByteBufInputStream}
+import org.grapheco.commons.util.StreamUtils
 
 /**
   * Created by bluejoe on 2020/2/15.

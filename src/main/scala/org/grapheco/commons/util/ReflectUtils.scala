@@ -1,4 +1,4 @@
-package cn.bluejoe.util
+package org.grapheco.commons.util
 
 import java.lang.reflect.{Field, Modifier}
 

@@ -3,8 +3,8 @@ package hippo
 import java.io.{File, FileInputStream}
 import java.nio.ByteBuffer
 
-import cn.bluejoe.hippo._
-import cn.bluejoe.util.Profiler._
+import org.grapheco.hippo._
+import org.grapheco.commons.util.Profiler._
 import io.netty.buffer.{ByteBuf, Unpooled}
 
 /**

@@ -4,9 +4,6 @@ import java.io.InputStream
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
 import java.util.concurrent.ConcurrentHashMap
-
-import cn.bluejoe.hippo._
-import cn.bluejoe.util.ReflectUtils._
 import io.netty.buffer.ByteBuf
 import net.neoremind.kraps.RpcConf
 import net.neoremind.kraps.rpc._
@@ -15,6 +12,8 @@ import net.neoremind.kraps.util.{ThreadUtils, Utils}
 import org.apache.spark.network.TransportContext
 import org.apache.spark.network.client.{RpcResponseCallback, TransportClient}
 import org.apache.spark.network.server.RpcHandler
+import org.grapheco.commons.util.ReflectUtils._
+import org.grapheco.hippo._
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future

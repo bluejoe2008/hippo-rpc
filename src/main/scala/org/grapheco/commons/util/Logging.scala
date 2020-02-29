@@ -1,4 +1,4 @@
-package cn.bluejoe.util
+package org.grapheco.commons.util
 
 import org.slf4j.LoggerFactory
 

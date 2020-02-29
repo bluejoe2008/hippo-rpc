@@ -2,9 +2,9 @@ package hippo
 
 import java.io.{File, FileInputStream}
 
-import cn.bluejoe.hippo.{HippoClient, HippoClientFactory, HippoServer}
-import cn.bluejoe.util.Profiler
-import cn.bluejoe.util.Profiler._
+import org.grapheco.hippo.{HippoClientFactory, HippoServer, HippoClient}
+import org.grapheco.commons.util.Profiler
+import org.grapheco.commons.util.Profiler._
 import io.netty.buffer.ByteBuf
 import org.apache.commons.io.IOUtils
 import org.junit.{After, Assert, Before, Test}
