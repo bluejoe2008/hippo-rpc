@@ -38,6 +38,16 @@ mvn clean compile install
 
 ## using hippo-rpc
 
+add repository in `pom.xml`:
+
+```
+    <dependency>
+        <groupId>org.grapheco</groupId>
+        <artifactId>hippo-rpc</artifactId>
+        <version>0.1.0-SNAPSHOT</version>
+    </dependency>
+```
+
  `HippoServer` enhances TransportServer with stream manager(open, streaming fetch, close)
  ```
    val server = HippoServer.create("test", new HippoRpcHandler() {
@@ -73,8 +83,8 @@ more examples, see <https://github.com/bluejoe2008/hippo-rpc/blob/master/src/tes
 
 ## dependencies
 
-`spark-commons`: spark common library, https://github.com/apache/spark
-`kraps-rpc`: A RPC framework leveraging Spark RPC module, https://github.com/neoremind/kraps-rpc
+* `spark-commons`: spark common library, https://github.com/apache/spark
+* `kraps-rpc`: A RPC framework leveraging Spark RPC module, https://github.com/neoremind/kraps-rpc
 
 ## licensing
 
