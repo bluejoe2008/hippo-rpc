@@ -83,8 +83,8 @@ more examples, see <https://github.com/bluejoe2008/hippo-rpc/blob/master/src/tes
 
 ## dependencies
 
-`spark-commons`: spark common library, https://github.com/apache/spark
-`kraps-rpc`: A RPC framework leveraging Spark RPC module, https://github.com/neoremind/kraps-rpc
+* `spark-commons`: spark common library, https://github.com/apache/spark
+* `kraps-rpc`: A RPC framework leveraging Spark RPC module, https://github.com/neoremind/kraps-rpc
 
 ## licensing
 
