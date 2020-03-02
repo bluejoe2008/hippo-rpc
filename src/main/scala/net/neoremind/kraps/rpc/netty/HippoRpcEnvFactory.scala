@@ -3,7 +3,8 @@ package net.neoremind.kraps.rpc.netty
 import java.io.InputStream
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
+
 import io.netty.buffer.ByteBuf
 import net.neoremind.kraps.RpcConf
 import net.neoremind.kraps.rpc._
@@ -17,7 +18,7 @@ import org.grapheco.hippo._
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration._
 import scala.util.control.NonFatal
 
 /**
@@ -100,6 +101,15 @@ class HippoEndpointRef(private[netty] val refNetty: NettyRpcEndpointRef, rpcEnv:
 
   override def ask[T](message: Any, timeout: RpcTimeout)(implicit evidence$1: ClassManifest[T]): Future[T] =
     refNetty.ask(message, timeout)(evidence$1)
+
+  def ask[T](message: Any, timeout: Duration)(implicit evidence$1: ClassManifest[T]): Future[T] = {
+    if (timeout.isFinite()) {
+      ask[T](message: Any, new RpcTimeout(FiniteDuration(timeout.length, timeout.unit), "ask.timeout"))
+    }
+    else {
+      ask[T](message: Any, new RpcTimeout(FiniteDuration(365, TimeUnit.DAYS), "long.ask.timeout"))
+    }
+  }
 
   override def name: String = refNetty.name
 

@@ -525,21 +525,26 @@ class HippoClient(client: TransportClient, config: HippoClientConfig) extends
       }
 
       override def onFailure(streamId: String, cause: Throwable): Unit = {
-        throw cause;
+        queue.put(cause)
       }
     })
 
     StreamUtils.concatChunks {
-      val buffer =
+      val next =
         if (waitStreamTimeout.isFinite())
           queue.poll(waitStreamTimeout.length, waitStreamTimeout.unit)
         else
           queue.take()
 
-      if (buffer == END_OF_STREAM)
-        None
-      else {
-        Some(new ByteBufInputStream(buffer.asInstanceOf[ByteBuf]))
+      next match {
+        case null =>
+          throw new TimeoutException();
+        case e: Throwable =>
+          throw e;
+        case END_OF_STREAM =>
+          None;
+        case buf: ByteBuf =>
+          Some(new ByteBufInputStream(buf))
       }
     }
   }
