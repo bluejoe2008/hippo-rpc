@@ -60,20 +60,23 @@ object HippoRpcServerForTest extends Logging {
       case PutFileRequest(totalLength) =>
         logger.debug(s"port-${port} received request: PutFileRequest")
         ctx.reply(PutFileResponse(extraInput.remaining()))
-        logger.debug(s"port-${port} replied: PutFileResponse")
+        logger.debug(s"port-${port} sent response: PutFileResponse")
 
       case PutFileWithForwardRequest(totalLength: Int, port2: Int) =>
         logger.debug(s"port-${port} received request: PutFileWithForwardRequest")
+
         //create new client
         val clientForward = HippoClientFactory.create("test", Map()).createClient("localhost", port2)
         val future = clientForward.ask[PutFileResponse](PutFileRequest(totalLength),
           Unpooled.wrappedBuffer(extraInput.duplicate()))
 
+        logger.debug(s"port-${port} sent request to port-${port2}: PutFileRequest")
+
         Await.result(future, Duration.Inf);
-        logger.debug(s"port-${port} received reply: PutFileResponse")
+        logger.debug(s"port-${port} received response from port-${port2}: PutFileResponse")
 
         ctx.reply(PutFileWithForwardResponse(extraInput.remaining(), Array(port) ++ Array(port2)))
-        logger.debug(s"port-${port} replied: PutFileWithForwardResponse")
+        logger.debug(s"port-${port} sent response: PutFileWithForwardResponse")
     }
 
     override def openChunkedStream(): PartialFunction[Any, ChunkedStream] = {

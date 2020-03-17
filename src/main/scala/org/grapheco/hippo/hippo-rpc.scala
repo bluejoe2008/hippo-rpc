@@ -311,7 +311,12 @@ object HippoClientFactory extends Logging {
   //WEIRLD: this makes next Upooled.buffer() call run fast
   Unpooled.buffer(1)
 
-  val executionContext: ExecutionContext = ExecutionContext.global
+  val pool = Executors.newFixedThreadPool(10)
+  val executionContext: ExecutionContext = ExecutionContext.fromExecutor(pool)
+
+  def shutdown(): Unit = {
+    pool.shutdown()
+  }
 
   def create(module: String, config: Map[String, String]): HippoClientFactory = {
     val configProvider = new MapConfigProvider(JavaConversions.mapAsJavaMap(config))

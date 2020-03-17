@@ -109,7 +109,7 @@ class HippoRpcTest {
         })
     }
 
-    val res = futures.map(x => Await.result(x, Duration("4s"))).head
+    val res = futures.map(x => Await.result(x, Duration.Inf)).head
     Assert.assertArrayEquals(Array(1224, 1225), res.nodes)
     Assert.assertEquals(new File("./testdata/inputs/9999999").length(), res.written)
   }
