@@ -3,9 +3,13 @@ package hippo
 import java.io.{File, FileInputStream}
 import java.nio.ByteBuffer
 
-import org.grapheco.hippo._
-import org.grapheco.commons.util.Profiler._
 import io.netty.buffer.{ByteBuf, Unpooled}
+import org.grapheco.commons.util.Logging
+import org.grapheco.commons.util.Profiler._
+import org.grapheco.hippo._
+
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 
 /**
   * Created by bluejoe on 2020/2/22.
@@ -26,6 +30,14 @@ case class PutFileRequest(totalLength: Int) {
 
 }
 
+case class PutFileWithForwardRequest(totalLength: Int, port2: Int) {
+
+}
+
+case class PutFileWithForwardResponse(written: Int, nodes: Array[Int]) {
+
+}
+
 case class PutFileResponse(written: Int) {
 
 }
@@ -38,15 +50,30 @@ case class GetBufferedResultsRequest(total: Int) {
 
 }
 
-object HippoRpcServerForTest {
-  def createServer() = HippoServer.create("test", Map(), new HippoRpcHandler() {
+object HippoRpcServerForTest extends Logging {
+  def createServer(port: Int) = HippoServer.create("test", Map(), new HippoRpcHandler() {
 
     override def receiveWithStream(extraInput: ByteBuffer, ctx: ReceiveContext): PartialFunction[Any, Unit] = {
       case SayHelloRequest(msg) =>
         ctx.reply(SayHelloResponse(msg.toUpperCase()))
 
       case PutFileRequest(totalLength) =>
+        logger.debug(s"port-${port} received request: PutFileRequest")
         ctx.reply(PutFileResponse(extraInput.remaining()))
+        logger.debug(s"port-${port} replied: PutFileResponse")
+
+      case PutFileWithForwardRequest(totalLength: Int, port2: Int) =>
+        logger.debug(s"port-${port} received request: PutFileWithForwardRequest")
+        //create new client
+        val clientForward = HippoClientFactory.create("test", Map()).createClient("localhost", port2)
+        val future = clientForward.ask[PutFileResponse](PutFileRequest(totalLength),
+          Unpooled.wrappedBuffer(extraInput.duplicate()))
+
+        Await.result(future, Duration.Inf);
+        logger.debug(s"port-${port} received reply: PutFileResponse")
+
+        ctx.reply(PutFileWithForwardResponse(extraInput.remaining(), Array(port) ++ Array(port2)))
+        logger.debug(s"port-${port} replied: PutFileWithForwardResponse")
     }
 
     override def openChunkedStream(): PartialFunction[Any, ChunkedStream] = {
@@ -94,5 +121,5 @@ object HippoRpcServerForTest {
 
         CompleteStream.fromByteBuffer(buf);
     }
-  }, 1224)
+  }, port)
 }
