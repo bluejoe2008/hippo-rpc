@@ -2,11 +2,11 @@ package hippo
 
 import java.io.{File, FileInputStream}
 
-import org.grapheco.hippo.{HippoClientFactory, HippoServer, HippoClient}
+import io.netty.buffer.Unpooled
+import org.apache.commons.io.IOUtils
 import org.grapheco.commons.util.Profiler
 import org.grapheco.commons.util.Profiler._
-import io.netty.buffer.ByteBuf
-import org.apache.commons.io.IOUtils
+import org.grapheco.hippo.{HippoClient, HippoClientFactory, HippoServer}
 import org.junit.{After, Assert, Before, Test}
 
 import scala.concurrent.duration.Duration
@@ -43,12 +43,13 @@ class HippoRpcTest {
   @Test
   def testPutFile(): Unit = {
     val res = timing(true, 10) {
-      Await.result(client.ask[PutFileResponse](PutFileRequest(new File("./testdata/inputs/9999999").length().toInt),
-        (buf: ByteBuf) => {
-          val fos = new FileInputStream(new File("./testdata/inputs/9999999"));
-          buf.writeBytes(fos.getChannel, new File("./testdata/inputs/9999999").length().toInt)
-          fos.close()
-        }), Duration.Inf)
+      Await.result(client.ask[PutFileResponse](PutFileRequest(new File("./testdata/inputs/9999999").length().toInt), {
+        val buf = Unpooled.buffer(1024)
+        val fos = new FileInputStream(new File("./testdata/inputs/9999999"));
+        buf.writeBytes(fos.getChannel, new File("./testdata/inputs/9999999").length().toInt)
+        fos.close()
+        buf
+      }), Duration.Inf)
     }
 
     Assert.assertEquals(new File("./testdata/inputs/9999999").length(), res.written)

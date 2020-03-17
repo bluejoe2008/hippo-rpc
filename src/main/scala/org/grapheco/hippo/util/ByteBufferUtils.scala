@@ -4,7 +4,7 @@ import java.io.{IOException, InputStream}
 import java.nio.ByteBuffer
 
 import io.netty.buffer.{ByteBuf, ByteBufInputStream}
-import org.grapheco.commons.util.StreamUtils
+import org.grapheco.commons.util.IOStreamUtils
 
 /**
   * Created by bluejoe on 2020/2/15.
@@ -19,7 +19,7 @@ class ByteBufLikeEx[T](src: T, buf: ByteBufLike) {
 
   def readObject(): Any = {
     val is = buf.createInputStream();
-    val o = StreamUtils.readObject(is)
+    val o = IOStreamUtils.readObject(is)
     is.close
     o;
   }
@@ -35,7 +35,7 @@ class ByteBufLikeEx[T](src: T, buf: ByteBufLike) {
   //[length][...object serlialization...]
   def writeObject(o: Any): T = {
     try {
-      val bytes = StreamUtils.serializeObject(o)
+      val bytes = IOStreamUtils.serializeObject(o)
       buf.writeBytes(bytes)
       src
     }

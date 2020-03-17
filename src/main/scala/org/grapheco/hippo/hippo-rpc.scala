@@ -6,6 +6,8 @@ import java.util.concurrent._
 import java.util.concurrent.atomic.AtomicLong
 import java.util.function.Predicate
 
+import com.google.common.base.Throwables
+import com.google.common.util.concurrent.SettableFuture
 import io.netty.buffer.{ByteBuf, ByteBufInputStream, Unpooled}
 import org.apache.spark.network.TransportContext
 import org.apache.spark.network.buffer.{ManagedBuffer, NettyManagedBuffer, NioManagedBuffer}
@@ -13,7 +15,7 @@ import org.apache.spark.network.client._
 import org.apache.spark.network.server.{NoOpRpcHandler, RpcHandler, StreamManager, TransportServer}
 import org.apache.spark.network.util.{MapConfigProvider, TransportConf}
 import org.grapheco.commons.util.Profiler._
-import org.grapheco.commons.util.{Logging, StreamUtils}
+import org.grapheco.commons.util.{IOStreamUtils, Logging}
 import org.grapheco.hippo.util.ByteBufferInputStream
 import org.grapheco.hippo.util.ByteBufferUtils._
 
@@ -53,7 +55,9 @@ import scala.concurrent.{Await, ExecutionContext, Future}
   *
   */
 trait ReceiveContext {
-  def reply[T](response: T, extra: ((ByteBuf) => Unit)*);
+  def reply[T](response: T, extra: ((ByteBuf) => Unit)*)
+
+  def sendFailure(e: Throwable)
 }
 
 case class OpenStreamRequest(streamRequest: Any) {
@@ -198,7 +202,7 @@ class HippoStreamManagerAdapter(var handler: HippoRpcHandler) extends StreamMana
   }
 
   override def openStream(streamId: String): ManagedBuffer = {
-    val request = StreamUtils.deserializeObject(StreamUtils.base64.decode(streamId))
+    val request = IOStreamUtils.deserializeObject(IOStreamUtils.base64.decode(streamId))
     handler.openCompleteStream()(request).createManagedBuffer();
   }
 
@@ -247,6 +251,10 @@ class HippoStreamManagerAdapter(var handler: HippoRpcHandler) extends StreamMana
         val output = Unpooled.buffer(1024);
         writeResponse.apply(output)
         callback.onSuccess(output.nioBuffer())
+      }
+
+      override def sendFailure(e: Throwable) = {
+        callback.onFailure(e)
       }
     }
 
@@ -336,7 +344,7 @@ trait HippoStreamingClient {
 }
 
 trait HippoRpcClient {
-  def ask[T](message: Any, extra: ((ByteBuf) => Unit)*)(implicit m: Manifest[T]): Future[T]
+  def ask[T](message: Any, extra: ByteBuf*)(implicit m: Manifest[T]): Future[T]
 }
 
 trait HippoClientConfig {
@@ -350,16 +358,16 @@ class HippoClient(client: TransportClient, config: HippoClientConfig) extends
 
   val sendTimeout = config.sendTimeOut()
 
-  override def ask[T](message: Any, extra: ((ByteBuf) => Unit)*)(implicit m: Manifest[T]): Future[T] = {
-    _sendAndReceive({ buf =>
-      buf.writeObject(message)
-      extra.foreach(_.apply(buf))
-    }, _.readObject().asInstanceOf[T])
+  override def ask[T](message: Any, extra: ByteBuf*)(implicit m: Manifest[T]): Future[T] = {
+    val buf0 = Unpooled.buffer(1024)
+    buf0.writeObject(message)
+    val buf = Unpooled.wrappedBuffer(Array(buf0) ++ extra: _*)
+    _sendAndReceive(buf, _.readObject().asInstanceOf[T])
   }
 
   override def getInputStream(request: Any, waitStreamTimeout: Duration): InputStream = {
-    _getInputStream(StreamUtils.base64.encodeAsString(
-      StreamUtils.serializeObject(request)), waitStreamTimeout)
+    _getInputStream(IOStreamUtils.base64.encodeAsString(
+      IOStreamUtils.serializeObject(request)), waitStreamTimeout)
   }
 
   override def getChunkedInputStream(request: Any, waitStreamTimeout: Duration): InputStream = {
@@ -371,7 +379,7 @@ class HippoClient(client: TransportClient, config: HippoClientConfig) extends
 
     //1ms
     timing(false) {
-      StreamUtils.concatChunks {
+      IOStreamUtils.concatChunks {
         if (iter.hasNext) {
           Some(iter.next)
         }
@@ -399,75 +407,30 @@ class HippoClient(client: TransportClient, config: HippoClientConfig) extends
 
   }
 
-  private class MyChunkReceivedCallback[T](consumeResponse: (ByteBuffer) => T) extends ChunkReceivedCallback {
-    val latch = new CountDownLatch(1);
-
-    var res: ChunkResponse[T] = _
-    var err: Throwable = null
+  private class MyChunkReceivedCallback[T](consumeResponse: (ByteBuffer) => T)
+    extends ChunkReceivedCallback with BlockingResponseCallback[ChunkResponse[T]] {
 
     override def onFailure(chunkIndex: Int, e: Throwable): Unit = {
-      err = e;
-      latch.countDown();
+      setException(e)
     }
 
     override def onSuccess(chunkIndex: Int, buffer: ManagedBuffer): Unit = {
-      try {
-        val buf = buffer.nioByteBuffer()
-        res = _readChunk(buf, consumeResponse)
-      }
-      catch {
-        case e: Throwable =>
-          err = e;
-      }
-
-      latch.countDown();
-    }
-
-    def await(timeout: Duration): ChunkResponse[T] = {
-      if (timeout.isFinite())
-        latch.await(timeout.length, timeout.unit)
-      else
-        latch.await()
-
-      if (err != null)
-        throw err;
-
-      res
+      val buf = buffer.nioByteBuffer()
+      val res = _readChunk(buf, consumeResponse)
+      setResult(res)
     }
   }
 
-  private class MyRpcResponseCallback[T](consumeResponse: (ByteBuffer) => T) extends RpcResponseCallback {
-    val latch = new CountDownLatch(1);
-
-    var res: Any = null
-    var err: Throwable = null
+  private class MyRpcResponseCallback[T](consumeResponse: (ByteBuffer) => T)
+    extends RpcResponseCallback with BlockingResponseCallback[T] {
 
     override def onFailure(e: Throwable): Unit = {
-      err = e
-      latch.countDown();
+      setException(e)
     }
 
     override def onSuccess(response: ByteBuffer): Unit = {
-      try {
-        res = consumeResponse(response)
-      }
-      catch {
-        case e: Throwable => err = e
-      }
-
-      latch.countDown();
-    }
-
-    def await(timeout: Duration): T = {
-      if (timeout.isFinite())
-        latch.await(timeout.length, timeout.unit)
-      else
-        latch.await()
-
-      if (err != null)
-        throw err;
-
-      res.asInstanceOf[T]
+      val res = consumeResponse(response)
+      setResult(res)
     }
   }
 
@@ -529,7 +492,7 @@ class HippoClient(client: TransportClient, config: HippoClientConfig) extends
       }
     })
 
-    StreamUtils.concatChunks {
+    IOStreamUtils.concatChunks {
       val next =
         if (waitStreamTimeout.isFinite())
           queue.poll(waitStreamTimeout.length, waitStreamTimeout.unit)
@@ -549,15 +512,41 @@ class HippoClient(client: TransportClient, config: HippoClientConfig) extends
     }
   }
 
-  private def _sendAndReceive[T](produceRequest: (ByteBuf) => Unit, consumeResponse: (ByteBuffer) => T)
+  private def _sendAndReceive[T](request: ByteBuf, consumeResponse: (ByteBuffer) => T)
                                 (implicit m: Manifest[T]): Future[T] = {
-    val buf = Unpooled.buffer(1024)
-    produceRequest(buf)
     val callback = new MyRpcResponseCallback[T](consumeResponse);
-    client.sendRpc(buf.nioBuffer, callback)
+    client.sendRpc(request.nioBuffer, callback)
     implicit val ec: ExecutionContext = HippoClientFactory.executionContext
     Future {
       callback.await(Duration.Inf)
+    }
+  }
+}
+
+private trait BlockingResponseCallback[T] {
+  private val result = SettableFuture.create[T]
+
+  def setResult(t: T) = result.set(t)
+
+  def setException(t: Throwable) =
+    result.setException(t)
+
+  def await(timeout: Duration): T = {
+    try {
+      if (timeout.isFinite()) {
+        result.get(timeout.length, timeout.unit)
+      }
+      else {
+        result.get(365, TimeUnit.DAYS)
+      }
+    }
+    catch {
+      case e: ExecutionException => {
+        throw Throwables.propagate(e.getCause)
+      }
+      case e: Exception => {
+        throw Throwables.propagate(e)
+      }
     }
   }
 }
