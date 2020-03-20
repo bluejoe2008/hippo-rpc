@@ -3,7 +3,7 @@ package net.neoremind.kraps.rpc.netty
 import java.io.InputStream
 import java.net.InetSocketAddress
 import java.nio.ByteBuffer
-import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
+import java.util.concurrent.{ConcurrentHashMap, Executors, TimeUnit}
 
 import io.netty.buffer.ByteBuf
 import net.neoremind.kraps.RpcConf
@@ -17,8 +17,8 @@ import org.grapheco.commons.util.ReflectUtils._
 import org.grapheco.hippo._
 import org.slf4j.LoggerFactory
 
-import scala.concurrent.Future
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 
 /**
@@ -63,8 +63,6 @@ object HippoRpcEnvFactory extends RpcEnvFactory {
   override def create(config: RpcEnvConfig): HippoRpcEnv = {
     val conf = config.conf
 
-    // Use JavaSerializerInstance in multiple threads is safe. However, if we plan to support
-    // KryoSerializer in future, we have to use ThreadLocal to store SerializerInstance
     val javaSerializerInstance =
       new JavaSerializer(conf).newInstance().asInstanceOf[JavaSerializerInstance]
 
@@ -88,13 +86,16 @@ object HippoRpcEnvFactory extends RpcEnvFactory {
   }
 }
 
-class HippoEndpointRef(private[netty] val refNetty: NettyRpcEndpointRef, rpcEnv: HippoRpcEnv, conf: RpcConf)
+class HippoEndpointRef(private[netty] val refNetty: NettyRpcEndpointRef, val rpcEnv: HippoRpcEnv, conf: RpcConf)
   extends RpcEndpointRef(conf) {
   override def address: RpcAddress = refNetty.address
 
-  private[netty] val streamingClient = new HippoClient(rpcEnv.createClient(refNetty.address), new HippoClientConfig {
-    override def sendTimeOut(): Duration = Duration(conf.get("hippo.send.timeout", "4s"))
-  })
+  private[netty] val streamingClient = new HippoClient(
+    rpcEnv.createClient(refNetty.address),
+    rpcEnv.executionContext,
+    new HippoClientConfig {
+      override def sendTimeOut(): Duration = Duration(conf.get(Constants.PARAMETER_TIMEOUT_SEND, "4s"))
+    })
 
   override def ask[T](message: Any)(implicit evidence$1: ClassManifest[T]): Future[T] =
     refNetty.ask(message)(evidence$1)
@@ -131,11 +132,19 @@ class HippoEndpointRef(private[netty] val refNetty: NettyRpcEndpointRef, rpcEnv:
 class HippoRpcEnv(conf: RpcConf, javaSerializerInstance: JavaSerializerInstance, host: String)
   extends NettyRpcEnv(conf, javaSerializerInstance, host) {
 
+  val pool = Executors.newFixedThreadPool(conf.getOption(Constants.PARAMETER_EXECUTOR_CAPACITY).map(_.toInt).getOrElse(20))
+  val executionContext: ExecutionContext = ExecutionContext.fromExecutor(pool)
+
   val hippoRpcHandler = new HippoRpcHandlerAdapter(this._get("dispatcher").asInstanceOf[Dispatcher], this)
   this._set("transportContext", new TransportContext(transportConf, hippoRpcHandler))
 
   def setRpcHandler(handler: HippoRpcHandler): Unit = {
     hippoRpcHandler.streamManagerAdapter.handler = handler;
+  }
+
+  override def shutdown(): Unit = {
+    pool.shutdown()
+    super.shutdown()
   }
 
   override def asyncSetupEndpointRefByURI(uri: String): Future[HippoEndpointRef] = {

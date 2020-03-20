@@ -311,13 +311,6 @@ object HippoClientFactory extends Logging {
   //WEIRLD: this makes next Upooled.buffer() call run fast
   Unpooled.buffer(1)
 
-  val pool = Executors.newFixedThreadPool(10)
-  val executionContext: ExecutionContext = ExecutionContext.fromExecutor(pool)
-
-  def shutdown(): Unit = {
-    pool.shutdown()
-  }
-
   def create(module: String, config: Map[String, String]): HippoClientFactory = {
     val configProvider = new MapConfigProvider(JavaConversions.mapAsJavaMap(config))
     val transportConf: TransportConf = new TransportConf(module, configProvider)
@@ -326,11 +319,18 @@ object HippoClientFactory extends Logging {
     new HippoClientFactory() {
       val factory = context.createClientFactory();
 
-      def createClient(host: String, port: Int) = {
-        new HippoClient(factory.createClient(host, port), new HippoClientConfig() {
+      override def createClient(host: String, port: Int) = {
+        new HippoClient(factory.createClient(host, port), executionContext, new HippoClientConfig() {
           def sendTimeOut(): Duration =
-            Duration(config.getOrElse("hippo.send.timeout", "4s"))
+            Duration(config.getOrElse(Constants.PARAMETER_TIMEOUT_SEND, "4s"))
         })
+      }
+
+      val pool = Executors.newFixedThreadPool(config.get(Constants.PARAMETER_EXECUTOR_CAPACITY).map(_.toInt).getOrElse(20))
+      val executionContext: ExecutionContext = ExecutionContext.fromExecutor(pool)
+
+      override def shutdown(): Unit = {
+        pool.shutdown()
       }
     }
   }
@@ -338,6 +338,8 @@ object HippoClientFactory extends Logging {
 
 trait HippoClientFactory {
   def createClient(host: String, port: Int): HippoClient;
+
+  def shutdown(): Unit;
 }
 
 trait HippoStreamingClient {
@@ -356,7 +358,7 @@ trait HippoClientConfig {
   def sendTimeOut(): Duration;
 }
 
-class HippoClient(client: TransportClient, config: HippoClientConfig) extends
+class HippoClient(client: TransportClient, executionContext: ExecutionContext, config: HippoClientConfig) extends
   HippoStreamingClient with HippoRpcClient with Logging {
 
   def close() = client.close()
@@ -521,7 +523,7 @@ class HippoClient(client: TransportClient, config: HippoClientConfig) extends
                                 (implicit m: Manifest[T]): Future[T] = {
     val callback = new MyRpcResponseCallback[T](consumeResponse);
     client.sendRpc(request.nioBuffer, callback)
-    implicit val ec: ExecutionContext = HippoClientFactory.executionContext
+    implicit val ec: ExecutionContext = this.executionContext
     Future {
       callback.await(Duration.Inf)
     }
