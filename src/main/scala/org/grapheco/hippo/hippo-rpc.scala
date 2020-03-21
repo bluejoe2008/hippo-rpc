@@ -167,6 +167,15 @@ object CompleteStream {
   def fromByteBuffer(buf: ByteBuf): CompleteStream = new CompleteStream() {
     override def createManagedBuffer(): ManagedBuffer = new NettyManagedBuffer(buf);
   }
+
+  def fromByteBuffer(head: AnyRef, body: ByteBuf): CompleteStream = new CompleteStream() {
+    override def createManagedBuffer(): ManagedBuffer = {
+      val headBuf = Unpooled.buffer(1024)
+      headBuf.writeObject(head)
+
+      new NettyManagedBuffer(Unpooled.wrappedBuffer(headBuf, body))
+    }
+  }
 }
 
 trait HippoRpcHandler {
@@ -347,6 +356,8 @@ trait HippoStreamingClient {
 
   def getInputStream(request: Any, waitStreamTimeout: Duration): InputStream
 
+  def getInputStream[T](request: Any, consumeHead: (T) => Unit, waitStreamTimeout: Duration): InputStream
+
   def getChunkedInputStream(request: Any, waitStreamTimeout: Duration): InputStream
 }
 
@@ -375,6 +386,13 @@ class HippoClient(client: TransportClient, executionContext: ExecutionContext, c
   override def getInputStream(request: Any, waitStreamTimeout: Duration): InputStream = {
     _getInputStream(IOStreamUtils.base64.encodeAsString(
       IOStreamUtils.serializeObject(request)), waitStreamTimeout)
+  }
+
+  override def getInputStream[T](request: Any, consumeHead: (T) => Unit, waitStreamTimeout: Duration): InputStream = {
+    val is = getInputStream(request: Any, waitStreamTimeout: Duration)
+    val t = IOStreamUtils.readObject(is).asInstanceOf[T]
+    consumeHead(t)
+    is
   }
 
   override def getChunkedInputStream(request: Any, waitStreamTimeout: Duration): InputStream = {

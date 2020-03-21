@@ -165,6 +165,15 @@ class HippoRpcTest {
 
     Assert.assertArrayEquals(
       IOUtils.toByteArray(new FileInputStream(new File("./testdata/inputs/9999999"))),
+      IOUtils.toByteArray(client.getInputStream[ReadFileResponseHead](ReadFileRequestWithHead("./testdata/inputs/9999999"),
+        (head: ReadFileResponseHead) => {
+          Assert.assertEquals("./testdata/inputs/9999999", head.path);
+          Assert.assertEquals(9999999, head.totalLength);
+        }, Duration.Inf))
+    );
+
+    Assert.assertArrayEquals(
+      IOUtils.toByteArray(new FileInputStream(new File("./testdata/inputs/9999999"))),
       IOUtils.toByteArray(client.getChunkedInputStream(ReadFileRequest("./testdata/inputs/9999999"), Duration.Inf))
     );
 
@@ -174,6 +183,12 @@ class HippoRpcTest {
       println(s"getInputStream(): size=$size")
       timing(true, 10) {
         IOUtils.toByteArray(client.getInputStream(ReadFileRequest(s"./testdata/inputs/$size"), Duration.Inf))
+      }
+
+      println(s"getInputStreamWithHead(): size=$size")
+      timing(true, 10) {
+        IOUtils.toByteArray(client.getInputStream[ReadFileResponseHead](ReadFileRequestWithHead(s"./testdata/inputs/$size"),
+          (head: ReadFileResponseHead) => {}, Duration.Inf))
       }
 
       println(s"getChunkedInputStream(): size=$size")

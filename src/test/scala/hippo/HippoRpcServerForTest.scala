@@ -26,6 +26,10 @@ case class ReadFileRequest(path: String) {
 
 }
 
+case class ReadFileRequestWithHead(path: String) {
+
+}
+
 case class PutFileRequest(totalLength: Int) {
 
 }
@@ -47,6 +51,10 @@ case class GetManyResultsRequest(times: Int, chunkSize: Int, msg: String) {
 }
 
 case class GetBufferedResultsRequest(total: Int) {
+
+}
+
+case class ReadFileResponseHead(path: String, totalLength: Int) {
 
 }
 
@@ -123,6 +131,13 @@ object HippoRpcServerForTest extends Logging {
         buf.writeBytes(fis.getChannel, new File(path).length().toInt)
 
         CompleteStream.fromByteBuffer(buf);
+
+      case ReadFileRequestWithHead(path) =>
+        val fis = new FileInputStream(new File(path))
+        val buf = Unpooled.buffer()
+        buf.writeBytes(fis.getChannel, new File(path).length().toInt)
+        val head = ReadFileResponseHead(path, new File(path).length().toInt)
+        CompleteStream.fromByteBuffer(head, buf);
     }
   }, port)
 }

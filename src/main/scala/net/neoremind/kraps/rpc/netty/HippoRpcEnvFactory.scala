@@ -125,6 +125,9 @@ class HippoEndpointRef(private[netty] val refNetty: NettyRpcEndpointRef, val rpc
   def getInputStream(request: Any, waitStreamTimeout: Duration): InputStream =
     streamingClient.getInputStream(request, waitStreamTimeout)
 
+  def getInputStream[T](request: Any, consumeHead: (T) => Unit, waitStreamTimeout: Duration): InputStream =
+    streamingClient.getInputStream[T](request, consumeHead, waitStreamTimeout)
+
   def getChunkedInputStream(request: Any, waitStreamTimeout: Duration): InputStream =
     streamingClient.getChunkedInputStream(request, waitStreamTimeout)
 }
