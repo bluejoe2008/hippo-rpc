@@ -137,9 +137,7 @@ class HippoRpcTest {
 
   @Test
   def testGetStream(): Unit = {
-
     Await.result(client.ask[SayHelloResponse](SayHelloRequest("hello")), Duration.Inf)
-
     timing(true, 10) {
       val is = client.getInputStream(ReadFileRequest("./testdata/inputs/9999999"), Duration.Inf);
       var read = 0;
@@ -177,7 +175,7 @@ class HippoRpcTest {
       IOUtils.toByteArray(client.getChunkedInputStream(ReadFileRequest("./testdata/inputs/9999999"), Duration.Inf))
     );
 
-    for (size <- Array(999, 9999, 99999, 999999, 9999999)) {
+    for (size <- Array(999, 9999, 99999, 999999, 9999999, 10000099)) {
       println("=================================")
 
       println(s"getInputStream(): size=$size")
