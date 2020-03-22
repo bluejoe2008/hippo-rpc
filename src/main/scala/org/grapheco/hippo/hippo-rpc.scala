@@ -170,10 +170,10 @@ object CompleteStream {
 
   def fromByteBuffer(head: AnyRef, body: ByteBuf): CompleteStream = new CompleteStream() {
     override def createManagedBuffer(): ManagedBuffer = {
-      val headBuf = Unpooled.buffer(1024)
-      headBuf.writeObject(head)
-
-      new NettyManagedBuffer(Unpooled.wrappedBuffer(headBuf, body))
+      val buf = Unpooled.buffer(1024)
+      buf.writeObject(head)
+      buf.writeBytes(body)
+      new NettyManagedBuffer(buf)
     }
   }
 }

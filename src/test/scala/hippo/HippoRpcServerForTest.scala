@@ -136,6 +136,7 @@ object HippoRpcServerForTest extends Logging {
         val fis = new FileInputStream(new File(path))
         val buf = Unpooled.buffer()
         buf.writeBytes(fis.getChannel, new File(path).length().toInt)
+
         val head = ReadFileResponseHead(path, new File(path).length().toInt)
         CompleteStream.fromByteBuffer(head, buf);
     }

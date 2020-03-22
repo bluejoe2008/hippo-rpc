@@ -186,7 +186,8 @@ class HippoRpcTest {
       println(s"getInputStreamWithHead(): size=$size")
       timing(true, 10) {
         IOUtils.toByteArray(client.getInputStream[ReadFileResponseHead](ReadFileRequestWithHead(s"./testdata/inputs/$size"),
-          (head: ReadFileResponseHead) => {}, Duration.Inf))
+          (head: ReadFileResponseHead) => {
+          }, Duration.Inf))
       }
 
       println(s"getChunkedInputStream(): size=$size")
