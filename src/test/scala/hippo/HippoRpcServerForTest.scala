@@ -70,12 +70,18 @@ object HippoRpcServerForTest extends Logging {
         ctx.reply(PutFileResponse(extraInput.remaining()))
         logger.debug(s"port-${port} sent response: PutFileResponse")
 
+      case ReadFileRequest(path) =>
+        val buf = Unpooled.buffer()
+        val fis = new FileInputStream(new File(path))
+        buf.writeBytes(fis.getChannel, new File(path).length().toInt)
+        ctx.replyBuffer(buf)
+
       case PutFileWithForwardRequest(totalLength: Int, port2: Int) =>
         logger.debug(s"port-${port} received request: PutFileWithForwardRequest")
 
         //create new client
         val clientForward = HippoClientFactory.create("test", Map()).createClient("localhost", port2)
-        val future = clientForward.ask[PutFileResponse](PutFileRequest(totalLength),
+        val future = clientForward.askWithStream[PutFileResponse](PutFileRequest(totalLength),
           Unpooled.wrappedBuffer(extraInput.duplicate()))
 
         logger.debug(s"port-${port} sent request to port-${port2}: PutFileRequest")
@@ -131,14 +137,6 @@ object HippoRpcServerForTest extends Logging {
         buf.writeBytes(fis.getChannel, new File(path).length().toInt)
 
         CompleteStream.fromByteBuffer(buf);
-
-      case ReadFileRequestWithHead(path) =>
-        val fis = new FileInputStream(new File(path))
-        val buf = Unpooled.buffer()
-        buf.writeBytes(fis.getChannel, new File(path).length().toInt)
-
-        val head = ReadFileResponseHead(path, new File(path).length().toInt)
-        CompleteStream.fromByteBuffer(head, buf);
     }
   }, port)
 }

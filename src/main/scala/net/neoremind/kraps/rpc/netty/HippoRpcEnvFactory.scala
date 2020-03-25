@@ -116,17 +116,17 @@ class HippoEndpointRef(private[netty] val refNetty: NettyRpcEndpointRef, val rpc
 
   override def send(message: Any): Unit = refNetty.send()
 
+  def ask[T](message: Any, consumeResponse: (ByteBuffer) => T)(implicit m: Manifest[T]): Future[T] =
+    streamingClient.ask(message, consumeResponse)
+
   def askWithStream[T](message: Any, extra: ByteBuf*)(implicit m: Manifest[T]): Future[T] =
-    streamingClient.ask(message, extra: _*)
+    streamingClient.askWithStream(message, extra: _*)
 
   def getChunkedStream[T](request: Any, waitStreamTimeout: Duration)(implicit m: Manifest[T]): Stream[T] =
     streamingClient.getChunkedStream(request, waitStreamTimeout)
 
   def getInputStream(request: Any, waitStreamTimeout: Duration): InputStream =
     streamingClient.getInputStream(request, waitStreamTimeout)
-
-  def getInputStream[T](request: Any, consumeHead: (T) => Unit, waitStreamTimeout: Duration): InputStream =
-    streamingClient.getInputStream[T](request, consumeHead, waitStreamTimeout)
 
   def getChunkedInputStream(request: Any, waitStreamTimeout: Duration): InputStream =
     streamingClient.getChunkedInputStream(request, waitStreamTimeout)

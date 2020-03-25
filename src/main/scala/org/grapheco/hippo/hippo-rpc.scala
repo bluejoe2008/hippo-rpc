@@ -55,7 +55,9 @@ import scala.concurrent.{Await, ExecutionContext, Future}
   *
   */
 trait ReceiveContext {
-  def reply[T](response: T, extra: ((ByteBuf) => Unit)*)
+  def reply[T](response: T)
+
+  def replyBuffer(buf: ByteBuf)
 
   def sendFailure(e: Throwable)
 }
@@ -167,15 +169,6 @@ object CompleteStream {
   def fromByteBuffer(buf: ByteBuf): CompleteStream = new CompleteStream() {
     override def createManagedBuffer(): ManagedBuffer = new NettyManagedBuffer(buf);
   }
-
-  def fromByteBuffer(head: AnyRef, body: ByteBuf): CompleteStream = new CompleteStream() {
-    override def createManagedBuffer(): ManagedBuffer = {
-      val buf = Unpooled.buffer(1024)
-      buf.writeObject(head)
-      buf.writeBytes(body)
-      new NettyManagedBuffer(buf)
-    }
-  }
 }
 
 trait HippoRpcHandler {
@@ -249,17 +242,14 @@ class HippoStreamManagerAdapter(var handler: HippoRpcHandler) extends StreamMana
 
   def handleRequestWithStream(streamRequest: Any, extra: ByteBuffer, callback: RpcResponseCallback): Unit = {
     val ctx = new ReceiveContext {
-      override def reply[T](response: T, extra: ((ByteBuf) => Unit)*) = {
-        replyBuffer((buf: ByteBuf) => {
-          buf.writeObject(response)
-          extra.foreach(_.apply(buf))
-        })
+      override def reply[T](response: T) = {
+        val buf = Unpooled.buffer(1024);
+        buf.writeObject(response)
+        replyBuffer(buf)
       }
 
-      def replyBuffer(writeResponse: ((ByteBuf) => Unit)) = {
-        val output = Unpooled.buffer(1024);
-        writeResponse.apply(output)
-        callback.onSuccess(output.nioBuffer())
+      override def replyBuffer(buf: ByteBuf) = {
+        callback.onSuccess(buf.nioBuffer())
       }
 
       override def sendFailure(e: Throwable) = {
@@ -356,13 +346,13 @@ trait HippoStreamingClient {
 
   def getInputStream(request: Any, waitStreamTimeout: Duration): InputStream
 
-  def getInputStream[T](request: Any, consumeHead: (T) => Unit, waitStreamTimeout: Duration): InputStream
-
   def getChunkedInputStream(request: Any, waitStreamTimeout: Duration): InputStream
 }
 
 trait HippoRpcClient {
-  def ask[T](message: Any, extra: ByteBuf*)(implicit m: Manifest[T]): Future[T]
+  def askWithStream[T](message: Any, extra: ByteBuf*)(implicit m: Manifest[T]): Future[T]
+
+  def ask[T](message: Any, consumeResponse: (ByteBuffer) => T)(implicit m: Manifest[T]): Future[T]
 }
 
 trait HippoClientConfig {
@@ -376,23 +366,22 @@ class HippoClient(client: TransportClient, executionContext: ExecutionContext, c
 
   val sendTimeout = config.sendTimeOut()
 
-  override def ask[T](message: Any, extra: ByteBuf*)(implicit m: Manifest[T]): Future[T] = {
+  override def askWithStream[T](message: Any, extra: ByteBuf*)(implicit m: Manifest[T]): Future[T] = {
     val buf0 = Unpooled.buffer(1024)
     buf0.writeObject(message)
     val buf = Unpooled.wrappedBuffer(Array(buf0) ++ extra: _*)
     _sendAndReceive(buf, _.readObject().asInstanceOf[T])
   }
 
+  override def ask[T](message: Any, consumeResponse: (ByteBuffer) => T)(implicit m: Manifest[T]): Future[T] = {
+    val buf = Unpooled.buffer(1024)
+    buf.writeObject(message)
+    _sendAndReceive[T](buf, consumeResponse)(m)
+  }
+
   override def getInputStream(request: Any, waitStreamTimeout: Duration): InputStream = {
     _getInputStream(IOStreamUtils.base64.encodeAsString(
       IOStreamUtils.serializeObject(request)), waitStreamTimeout)
-  }
-
-  override def getInputStream[T](request: Any, consumeHead: (T) => Unit, waitStreamTimeout: Duration): InputStream = {
-    val is = getInputStream(request: Any, waitStreamTimeout: Duration)
-    val t = IOStreamUtils.readObject(is).asInstanceOf[T]
-    consumeHead(t)
-    is
   }
 
   override def getChunkedInputStream(request: Any, waitStreamTimeout: Duration): InputStream = {
@@ -463,7 +452,7 @@ class HippoClient(client: TransportClient, executionContext: ExecutionContext, c
     //send start stream request
     //2ms
     val OpenStreamResponse(streamId, hasMoreChunks) =
-      Await.result(ask[OpenStreamResponse](OpenStreamRequest(request)), waitStreamTimeout);
+      Await.result(askWithStream[OpenStreamResponse](OpenStreamRequest(request)), waitStreamTimeout);
 
     if (!hasMoreChunks) {
       Stream.empty[T]
