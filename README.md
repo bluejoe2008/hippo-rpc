@@ -81,6 +81,8 @@ more examples, see <https://github.com/bluejoe2008/hippo-rpc/blob/master/src/tes
    val endPointRef = rpcEnv.setupEndpointRef(RpcAddress(...), "...");
 ```
 
+more examples, see <https://github.com/bluejoe2008/hippo-rpc/blob/master/src/test/scala/hippo/HippoRpcEnvFactoryTest.scala>
+
 ## dependencies
 
 * `spark-commons`: spark common library, https://github.com/apache/spark
