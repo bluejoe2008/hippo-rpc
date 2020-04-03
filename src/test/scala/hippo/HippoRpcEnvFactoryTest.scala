@@ -239,30 +239,6 @@ class HippoRpcEnvFactoryTest {
 
 class FileRpcEndPoint(override val rpcEnv: HippoRpcEnv) extends RpcEndpoint with HippoRpcHandler with Logging{
 
-//  override def receiveAndReply(ctx: RpcCallContext): PartialFunction[Any, Unit] = {
-//    case SayHelloRequest(msg) => {
-//      ctx.reply(SayHelloResponse(msg.toUpperCase()))
-//    }
-//
-//    case PutFileRequest(length) => {
-//      ctx.reply(PutFileResponse(length))
-//    }
-//
-//    case ReadFileRequest(path) =>
-//      val buf = Unpooled.buffer()
-//      val fis = new FileInputStream(new File(path))
-//      buf.writeBytes(fis.getChannel, new File(path).length().toInt)
-//      ctx.reply(buf)
-//
-//    case PutFileWithForwardRequest(totalLength, port2) => {
-//      val clientForwardEnv = HippoRpcEnvFactory.create(RpcEnvClientConfig(new RpcConf(), "client2"))
-//      val endpointRef = clientForwardEnv.setupEndpointRef(RpcAddress("localhost", port2), "server2")
-//      Await.result(endpointRef.ask[PutFileResponse](PutFileRequest(totalLength)), Duration.Inf)
-//
-//      ctx.reply(PutFileWithForwardResponse(totalLength, Array(this.rpcEnv.address.port) ++ Array(port2)))
-//    }
-//  }
-
   override def receiveWithStream(extraInput: ByteBuffer, ctx: ReceiveContext): PartialFunction[Any, Unit] = {
     case SayHelloRequest(msg) =>
       ctx.reply(SayHelloResponse(msg.toUpperCase()))
