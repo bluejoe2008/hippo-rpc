@@ -235,6 +235,13 @@ class HippoRpcEnvFactoryTest {
       futures.foreach(Await.result(_, Duration.Inf))
     }
   }
+
+  @Test
+  def testDataSize(): Unit ={
+    // bug: java.nio.channels.ClosedChannelException
+    val res = endpointRef.getInputStream(ReadFileRequest("./testdata/inputs/99999999"), Duration.Inf)
+    println(res)
+  }
 }
 
 class FileRpcEndPoint(override val rpcEnv: HippoRpcEnv) extends RpcEndpoint with HippoRpcHandler with Logging{
