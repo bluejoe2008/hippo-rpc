@@ -350,7 +350,7 @@ trait HippoStreamingClient {
 }
 
 trait HippoRpcClient {
-  def askWithStream[T](message: Any, extra: ByteBuf*)(implicit m: Manifest[T]): Future[T]
+  def askWithBuffer[T](message: Any, extra: ByteBuf*)(implicit m: Manifest[T]): Future[T]
 
   def ask[T](message: Any, consumeResponse: (ByteBuffer) => T)(implicit m: Manifest[T]): Future[T]
 }
@@ -366,7 +366,7 @@ class HippoClient(client: TransportClient, executionContext: ExecutionContext, c
 
   val sendTimeout = config.sendTimeOut()
 
-  override def askWithStream[T](message: Any, extra: ByteBuf*)(implicit m: Manifest[T]): Future[T] = {
+  override def askWithBuffer[T](message: Any, extra: ByteBuf*)(implicit m: Manifest[T]): Future[T] = {
     val buf0 = Unpooled.buffer(1024)
     buf0.writeObject(message)
     val buf = Unpooled.wrappedBuffer(Array(buf0) ++ extra: _*)
@@ -452,7 +452,7 @@ class HippoClient(client: TransportClient, executionContext: ExecutionContext, c
     //send start stream request
     //2ms
     val OpenStreamResponse(streamId, hasMoreChunks) =
-      Await.result(askWithStream[OpenStreamResponse](OpenStreamRequest(request)), waitStreamTimeout);
+      Await.result(askWithBuffer[OpenStreamResponse](OpenStreamRequest(request)), waitStreamTimeout);
 
     if (!hasMoreChunks) {
       Stream.empty[T]

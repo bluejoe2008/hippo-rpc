@@ -81,7 +81,7 @@ object HippoRpcServerForTest extends Logging {
 
         //create new client
         val clientForward = HippoClientFactory.create("test", Map()).createClient("localhost", port2)
-        val future = clientForward.askWithStream[PutFileResponse](PutFileRequest(totalLength),
+        val future = clientForward.askWithBuffer[PutFileResponse](PutFileRequest(totalLength),
           Unpooled.wrappedBuffer(extraInput.duplicate()))
 
         logger.debug(s"port-${port} sent request to port-${port2}: PutFileRequest")

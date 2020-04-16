@@ -36,10 +36,10 @@ class HippoRpcTest {
 
   @Test
   def testRpc(): Unit = {
-    Await.result(client.askWithStream[SayHelloResponse](SayHelloRequest("hello")), Duration.Inf)
+    Await.result(client.askWithBuffer[SayHelloResponse](SayHelloRequest("hello")), Duration.Inf)
 
     val res1 = timing(true) {
-      Await.result(client.askWithStream[SayHelloResponse](SayHelloRequest("hello")), Duration.Inf)
+      Await.result(client.askWithBuffer[SayHelloResponse](SayHelloRequest("hello")), Duration.Inf)
     }
 
     Assert.assertEquals("HELLO", res1.str);
@@ -48,7 +48,7 @@ class HippoRpcTest {
   @Test
   def testPutFile(): Unit = {
     val res = timing(true, 10) {
-      Await.result(client.askWithStream[PutFileResponse](PutFileRequest(new File("./testdata/inputs/9999999").length().toInt), {
+      Await.result(client.askWithBuffer[PutFileResponse](PutFileRequest(new File("./testdata/inputs/9999999").length().toInt), {
         val buf = Unpooled.buffer(1024)
         val fos = new FileInputStream(new File("./testdata/inputs/9999999"));
         buf.writeBytes(fos.getChannel, new File("./testdata/inputs/9999999").length().toInt)
@@ -64,7 +64,7 @@ class HippoRpcTest {
   def testPutFileAsync(): Unit = {
     val futures = (1 to 10).map {
       x =>
-        client.askWithStream[PutFileResponse](PutFileRequest(new File("./testdata/inputs/9999999").length().toInt), {
+        client.askWithBuffer[PutFileResponse](PutFileRequest(new File("./testdata/inputs/9999999").length().toInt), {
           val buf = Unpooled.buffer(1024)
           val fos = new FileInputStream(new File("./testdata/inputs/9999999"));
           buf.writeBytes(fos.getChannel, new File("./testdata/inputs/9999999").length().toInt)
@@ -81,7 +81,7 @@ class HippoRpcTest {
   def testPutFileWithForward(): Unit = {
     val res = timing(true, 10) {
       //1224->1225
-      Await.result(client.askWithStream[PutFileWithForwardResponse](PutFileWithForwardRequest(
+      Await.result(client.askWithBuffer[PutFileWithForwardResponse](PutFileWithForwardRequest(
         new File("./testdata/inputs/9999999").length().toInt, 1225), {
         val buf = Unpooled.buffer(1024)
         val fos = new FileInputStream(new File("./testdata/inputs/9999999"));
@@ -100,7 +100,7 @@ class HippoRpcTest {
     val futures = (1 to 10).map {
       x =>
         //1224->1225
-        client.askWithStream[PutFileWithForwardResponse](PutFileWithForwardRequest(
+        client.askWithBuffer[PutFileWithForwardResponse](PutFileWithForwardRequest(
           new File("./testdata/inputs/9999999").length().toInt, 1225), {
           val buf = Unpooled.buffer(1024)
           val fos = new FileInputStream(new File("./testdata/inputs/9999999"));
@@ -117,7 +117,7 @@ class HippoRpcTest {
 
   @Test
   def testGetChunkedStream(): Unit = {
-    Await.result(client.askWithStream[SayHelloResponse](SayHelloRequest("hello")), Duration.Inf)
+    Await.result(client.askWithBuffer[SayHelloResponse](SayHelloRequest("hello")), Duration.Inf)
 
     val results = timing(true, 10) {
       client.getChunkedStream[String](GetManyResultsRequest(100, 10, "hello"), Duration.Inf)
@@ -138,7 +138,7 @@ class HippoRpcTest {
 
   @Test
   def testGetStream(): Unit = {
-    Await.result(client.askWithStream[SayHelloResponse](SayHelloRequest("hello")), Duration.Inf)
+    Await.result(client.askWithBuffer[SayHelloResponse](SayHelloRequest("hello")), Duration.Inf)
 
     val bytes = timing(true, 10) {
       Await.result(client.ask(ReadFileRequest("./testdata/inputs/9999999"), (buf) => {
