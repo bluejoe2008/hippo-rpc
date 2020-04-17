@@ -94,6 +94,11 @@ gets for an `InputStream` chunk by chunk, e.g, stream of a remote file
    val endPointRef = rpcEnv.setupEndpointRef(RpcAddress(...), "...");
 ```
 
+to provide a customized `HippoRpcHandler`, a set of methods will be implemented:
+* `openCompleteStream`: provides a stream for given request
+* `openChunkedStream`: provides a chunkable stream for given request
+* `receiveWithStream`: defines how to respond on received request buffer
+
 more examples, see <https://github.com/bluejoe2008/hippo-rpc/blob/master/src/test/scala/hippo/HippoRpcEnvFactoryTest.scala>
 
 ## methods of HippoEndpointRef
