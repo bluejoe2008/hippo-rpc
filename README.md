@@ -63,15 +63,15 @@ add repository in `pom.xml`:
 more examples, see <https://github.com/bluejoe2008/hippo-rpc/blob/master/src/test/scala/hippo/HippoRpcTest.scala>
 
 methods of `HippoClient`:
-* ask[T](message: Any, consumeResponse: (ByteBuffer) => T)(implicit m: Manifest[T]): Future[T]
+* `ask[T](message: Any, consumeResponse: (ByteBuffer) => T)(implicit m: Manifest[T]): Future[T]`
 asks for an response, `message` as request, use `consumeResponse` to parse response message
-* askWithBuffer[T](message: Any, extra: ByteBuf*)(implicit m: Manifest[T]): Future[T]
+* `askWithBuffer[T](message: Any, extra: ByteBuf*)(implicit m: Manifest[T]): Future[T]`
 asks for an response, sends `message` and `extra` as request
-* getInputStream(request: Any, waitStreamTimeout: Duration): InputStream
+* `getInputStream(request: Any, waitStreamTimeout: Duration): InputStream`
 gets for an `InputStream`, e.g, stream of a remote file
-* getChunkedStream[T](request: Any, waitStreamTimeout: Duration)(implicit m: Manifest[T]): Stream[T]
+* `getChunkedStream[T](request: Any, waitStreamTimeout: Duration)(implicit m: Manifest[T]): Stream[T]`
 gets results as a `Stream`, e.g, results of a SQL execution
-* getChunkedInputStream(request: Any, waitStreamTimeout: Duration): InputStream
+* `getChunkedInputStream(request: Any, waitStreamTimeout: Duration): InputStream`
 gets for an `InputStream` chunk by chunk, e.g, stream of a remote file
 
 ## using hippo-rpc with spark-rpc
