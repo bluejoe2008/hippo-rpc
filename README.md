@@ -44,7 +44,7 @@ add repository in `pom.xml`:
     <dependency>
         <groupId>org.grapheco</groupId>
         <artifactId>hippo-rpc</artifactId>
-        <version>0.1.0-SNAPSHOT</version>
+        <version>0.1.2</version>
     </dependency>
 ```
 
@@ -61,6 +61,19 @@ add repository in `pom.xml`:
  ```
 
 more examples, see <https://github.com/bluejoe2008/hippo-rpc/blob/master/src/test/scala/hippo/HippoRpcTest.scala>
+
+## methods of HippoClient
+
+* `ask[T](message: Any, consumeResponse: (ByteBuffer) => T): Future[T]`
+asks for an response, `message` as request, use `consumeResponse` to parse response message
+* `askWithBuffer[T](message: Any, extra: ByteBuf*): Future[T]`
+asks for an response, sends `message` and `extra` as request
+* `getInputStream(request: Any, waitStreamTimeout: Duration): InputStream`
+gets for an `InputStream`, e.g, stream of a remote file
+* `getChunkedStream[T](request: Any, waitStreamTimeout: Duration): Stream[T]`
+gets results as a `Stream`, e.g, results of a SQL execution
+* `getChunkedInputStream(request: Any, waitStreamTimeout: Duration): InputStream`
+gets for an `InputStream` chunk by chunk, e.g, stream of a remote file
 
 ## using hippo-rpc with spark-rpc
 
@@ -81,7 +94,33 @@ more examples, see <https://github.com/bluejoe2008/hippo-rpc/blob/master/src/tes
    val endPointRef = rpcEnv.setupEndpointRef(RpcAddress(...), "...");
 ```
 
+to provide a customized `HippoRpcHandler`, a set of methods will be implemented:
+* `openCompleteStream`: provides a stream for given request
+* `openChunkedStream`: provides a chunkable stream for given request
+* `receiveWithBuffer`: defines how to respond on received request buffer
+
 more examples, see <https://github.com/bluejoe2008/hippo-rpc/blob/master/src/test/scala/hippo/HippoRpcEnvFactoryTest.scala>
+
+## methods of HippoEndpointRef
+
+* `ask[T](message: Any): Future[T]`
+asks for an response, `message` as request
+* `ask[T](message: Any, timeout: RpcTimeout): Future[T]`
+asks for an response, with max timeout limit
+* `ask[T](message: Any, timeout: Duration): Future[T]`
+asks for an response, with max timeout limit
+* `send(message: Any): Unit`
+sends a message
+* `ask[T](message: Any, consumeResponse: (ByteBuffer) => T): Future[T]`
+asks for an response, `message` as request, use `consumeResponse` to parse response message
+* `askWithBuffer[T](message: Any, extra: ByteBuf*): Future[T]`
+asks for an response, sends `message` and `extra` as request
+* `getInputStream(request: Any, waitStreamTimeout: Duration): InputStream`
+gets for an `InputStream`, e.g, stream of a remote file
+* `getChunkedStream[T](request: Any, waitStreamTimeout: Duration): Stream[T]`
+gets results as a `Stream`, e.g, results of a SQL execution
+* `getChunkedInputStream(request: Any, waitStreamTimeout: Duration): InputStream`
+gets for an `InputStream` chunk by chunk, e.g, stream of a remote file
 
 ## dependencies
 
