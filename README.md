@@ -44,7 +44,7 @@ add repository in `pom.xml`:
     <dependency>
         <groupId>org.grapheco</groupId>
         <artifactId>hippo-rpc</artifactId>
-        <version>0.1.1</version>
+        <version>0.1.2</version>
     </dependency>
 ```
 
