@@ -180,7 +180,7 @@ trait HippoRpcHandler {
     throw new UnsupportedOperationException();
   }
 
-  def receiveWithStream(extraInput: ByteBuffer, context: ReceiveContext): PartialFunction[Any, Unit] = {
+  def receiveWithBuffer(extraInput: ByteBuffer, context: ReceiveContext): PartialFunction[Any, Unit] = {
     throw new UnsupportedOperationException();
   }
 }
@@ -257,7 +257,7 @@ class HippoStreamManagerAdapter(var handler: HippoRpcHandler) extends StreamMana
       }
     }
 
-    handler.receiveWithStream(extra, ctx)(streamRequest)
+    handler.receiveWithBuffer(extra, ctx)(streamRequest)
   }
 }
 

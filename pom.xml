@@ -6,8 +6,28 @@
 
     <groupId>org.grapheco</groupId>
     <artifactId>hippo-rpc</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
-
+    <version>0.1.2</version>
+    <name>enhancing spark-commons with easy stream management and handling</name>
+    <description>Java backend for "elFinder".</description>
+    <url>https://github.com/bluejoe2008/hippo-rpc</url>
+    <licenses>
+        <license>
+            <name>BSD 2-clause License</name>
+            <url>http://opensource.org/licenses/BSD-2-Clause</url>
+        </license>
+    </licenses>
+    <developers>
+        <developer>
+            <name>shenzhihong</name>
+            <email>bluejoe2008@gmail.com</email>
+        </developer>
+    </developers>
+    <scm>
+        <connection>scm:git:git@github.com:bluejoe2008/hippo-rpc.git</connection>
+        <developerConnection>scm:git:git@github.com:bluejoe2008/hippo-rpc.git</developerConnection>
+        <url>https://github.com/bluejoe2008/hippo-rpc.git</url>
+        <tag>HEAD</tag>
+    </scm>
     <dependencies>
         <dependency>
             <groupId>org.apache.spark</groupId>

@@ -61,7 +61,7 @@ case class ReadFileResponseHead(path: String, totalLength: Int) {
 object HippoRpcServerForTest extends Logging {
   def createServer(port: Int) = HippoServer.create("test", Map(), new HippoRpcHandler() {
 
-    override def receiveWithStream(extraInput: ByteBuffer, ctx: ReceiveContext): PartialFunction[Any, Unit] = {
+    override def receiveWithBuffer(extraInput: ByteBuffer, ctx: ReceiveContext): PartialFunction[Any, Unit] = {
       case SayHelloRequest(msg) =>
         ctx.reply(SayHelloResponse(msg.toUpperCase()))
 

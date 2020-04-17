@@ -119,7 +119,7 @@ class HippoEndpointRef(private[netty] val refNetty: NettyRpcEndpointRef, val rpc
   def ask[T](message: Any, consumeResponse: (ByteBuffer) => T)(implicit m: Manifest[T]): Future[T] =
     streamingClient.ask(message, consumeResponse)
 
-  def askWithStream[T](message: Any, extra: ByteBuf*)(implicit m: Manifest[T]): Future[T] =
+  def askWithBuffer[T](message: Any, extra: ByteBuf*)(implicit m: Manifest[T]): Future[T] =
     streamingClient.askWithBuffer(message, extra: _*)
 
   def getChunkedStream[T](request: Any, waitStreamTimeout: Duration)(implicit m: Manifest[T]): Stream[T] =

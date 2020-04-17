@@ -55,11 +55,11 @@ class HippoRpcEnvFactoryTest {
 
   @Test
   def testRpc(): Unit = {
-    Await.result(endpointRef.askWithStream[SayHelloResponse](SayHelloRequest("hello")), Duration.Inf)
+    Await.result(endpointRef.askWithBuffer[SayHelloResponse](SayHelloRequest("hello")), Duration.Inf)
 
 
     val res1 = timing(true) {
-      Await.result(endpointRef.askWithStream[SayHelloResponse](SayHelloRequest("hello")), Duration.Inf)
+      Await.result(endpointRef.askWithBuffer[SayHelloResponse](SayHelloRequest("hello")), Duration.Inf)
     }
 
     Assert.assertEquals("HELLO", res1.str);
@@ -68,7 +68,7 @@ class HippoRpcEnvFactoryTest {
   @Test
   def testPutFile(): Unit ={
     val res = timing(true, 10) {
-      Await.result(endpointRef.askWithStream[PutFileResponse](PutFileRequest(new File("./testdata/inputs/9999999").length().toInt), {
+      Await.result(endpointRef.askWithBuffer[PutFileResponse](PutFileRequest(new File("./testdata/inputs/9999999").length().toInt), {
         val buf = Unpooled.buffer(1024)
         val fos = new FileInputStream(new File("./testdata/inputs/9999999"));
         buf.writeBytes(fos.getChannel, new File("./testdata/inputs/9999999").length().toInt)
@@ -84,7 +84,7 @@ class HippoRpcEnvFactoryTest {
   def testPutFileAsync(): Unit = {
     val futures = (1 to 10).map {
       x =>
-        endpointRef.askWithStream[PutFileResponse](PutFileRequest(new File("./testdata/inputs/9999999").length().toInt), {
+        endpointRef.askWithBuffer[PutFileResponse](PutFileRequest(new File("./testdata/inputs/9999999").length().toInt), {
           val buf = Unpooled.buffer(1024)
           val fos = new FileInputStream(new File("./testdata/inputs/9999999"));
           buf.writeBytes(fos.getChannel, new File("./testdata/inputs/9999999").length().toInt)
@@ -100,7 +100,7 @@ class HippoRpcEnvFactoryTest {
   @Test
   def testPutFileWithForward(): Unit ={
     val res = timing(true, 10) {
-      Await.result(endpointRef.askWithStream[PutFileWithForwardResponse](PutFileWithForwardRequest(
+      Await.result(endpointRef.askWithBuffer[PutFileWithForwardResponse](PutFileWithForwardRequest(
         new File("./testdata/inputs/9999999").length().toInt, serverConfig2.port), {
         val buf = Unpooled.buffer(1024)
         val fos = new FileInputStream(new File("./testdata/inputs/9999999"));
@@ -118,7 +118,7 @@ class HippoRpcEnvFactoryTest {
   def testPutFileWithForwardAsync(): Unit = {
     val futures = (1 to 10).map {
       x =>
-        endpointRef.askWithStream[PutFileWithForwardResponse](PutFileWithForwardRequest(
+        endpointRef.askWithBuffer[PutFileWithForwardResponse](PutFileWithForwardRequest(
           new File("./testdata/inputs/9999999").length().toInt, serverConfig2.port), {
           val buf = Unpooled.buffer(1024)
           val fos = new FileInputStream(new File("./testdata/inputs/9999999"));
@@ -134,7 +134,7 @@ class HippoRpcEnvFactoryTest {
 
   @Test
   def testGetChunkedStream(): Unit ={
-    Await.result(endpointRef.askWithStream[SayHelloResponse](SayHelloRequest("hello")), Duration.Inf)
+    Await.result(endpointRef.askWithBuffer[SayHelloResponse](SayHelloRequest("hello")), Duration.Inf)
 
     val results = timing(true, 10) {
       endpointRef.getChunkedStream[String](GetManyResultsRequest(100, 10, "hello"), Duration.Inf)
@@ -155,7 +155,7 @@ class HippoRpcEnvFactoryTest {
 
   @Test
   def testGetStream(): Unit = {
-    Await.result(endpointRef.askWithStream[SayHelloResponse](SayHelloRequest("hello")), Duration.Inf)
+    Await.result(endpointRef.askWithBuffer[SayHelloResponse](SayHelloRequest("hello")), Duration.Inf)
 
     val bytes = timing(true, 10) {
       Await.result(endpointRef.ask(ReadFileRequest("./testdata/inputs/9999999"), (buf) => {
@@ -246,7 +246,7 @@ class HippoRpcEnvFactoryTest {
 
 class FileRpcEndPoint(override val rpcEnv: HippoRpcEnv) extends RpcEndpoint with HippoRpcHandler with Logging{
 
-  override def receiveWithStream(extraInput: ByteBuffer, ctx: ReceiveContext): PartialFunction[Any, Unit] = {
+  override def receiveWithBuffer(extraInput: ByteBuffer, ctx: ReceiveContext): PartialFunction[Any, Unit] = {
     case SayHelloRequest(msg) =>
       ctx.reply(SayHelloResponse(msg.toUpperCase()))
 
@@ -263,7 +263,7 @@ class FileRpcEndPoint(override val rpcEnv: HippoRpcEnv) extends RpcEndpoint with
       val clientForwardEnv = HippoRpcEnvFactory.create(RpcEnvClientConfig(new RpcConf(), "client2"))
       val endpointRef = clientForwardEnv.setupEndpointRef(RpcAddress("localhost", port2), "server2")
 
-      val future = endpointRef.askWithStream[PutFileResponse](PutFileRequest(totalLength),
+      val future = endpointRef.askWithBuffer[PutFileResponse](PutFileRequest(totalLength),
         Unpooled.wrappedBuffer(extraInput.duplicate()))
 
       Await.result(future, Duration.Inf);
