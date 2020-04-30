@@ -97,13 +97,15 @@ trait ChunkedMessageStream[T] extends ChunkedStream {
 object ChunkedStream {
   val executor = Executors.newSingleThreadExecutor();
 
-  def grouped[T](batchSize: Int, iterable: Iterable[T]) = new GroupedMessageStream[T](batchSize, iterable);
+  def grouped[T](batchSize: Int, iterable: Iterable[T], callbackOnClose: => Unit = {}) =
+    new GroupedMessageStream[T](batchSize, iterable, callbackOnClose);
 
   def pooled[T](poolSize: Int, producer: (MessagePool[T]) => Unit)(implicit m: Manifest[T]) =
     new PooledMessageStream[T](executor, poolSize, producer);
 }
 
-class GroupedMessageStream[T](batchSize: Int, iterable: Iterable[T]) extends ChunkedMessageStream[T] {
+class GroupedMessageStream[T](batchSize: Int, iterable: Iterable[T], callbackOnClose: => Unit)
+  extends ChunkedMessageStream[T] {
   val it = iterable.iterator.grouped(batchSize)
 
   override def hasNext() = it.hasNext;
@@ -111,6 +113,7 @@ class GroupedMessageStream[T](batchSize: Int, iterable: Iterable[T]) extends Chu
   def nextChunk(): Iterable[T] = it.next();
 
   override def close(): Unit = {
+    callbackOnClose
   }
 }
 
@@ -119,7 +122,8 @@ trait MessagePool[T] {
 }
 
 class PooledMessageStream[T](executor: ExecutorService, bufferSize: Int, producer: (MessagePool[T]) => Unit)
-                            (implicit m: Manifest[T]) extends ChunkedMessageStream[T] {
+                            (implicit m: Manifest[T])
+  extends ChunkedMessageStream[T] {
   val buffer = new ArrayBlockingQueue[Any](bufferSize);
   val END_OF_STREAM = new Object();
 
