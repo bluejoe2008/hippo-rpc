@@ -5,10 +5,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.grapheco</groupId>
-    <artifactId>hippo-rpc</artifactId>
-    <version>0.1.2</version>
+    <artifactId>hippo-rpc_2.12</artifactId>
+    <version>0.1.2-SNAPSHOT</version>
     <name>enhancing spark-commons with easy stream management and handling</name>
-    <description>Java backend for "elFinder".</description>
+    <description>hippo-rpc</description>
     <url>https://github.com/bluejoe2008/hippo-rpc</url>
     <licenses>
         <license>
@@ -31,13 +31,13 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.spark</groupId>
-            <artifactId>spark-network-common_2.11</artifactId>
-            <version>2.2.0</version>
+            <artifactId>spark-network-common_2.12</artifactId>
+            <version>2.4.0</version>
         </dependency>
         <dependency>
             <groupId>net.neoremind</groupId>
-            <artifactId>kraps-rpc_2.11</artifactId>
-            <version>1.0.0</version>
+            <artifactId>kraps-rpc_2.12</artifactId>
+            <version>1.0.1-SNAPSHOT</version>
         </dependency>
         <dependency>
             <groupId>commons-io</groupId>
@@ -72,8 +72,8 @@
                 <artifactId>scala-maven-plugin</artifactId>
                 <version>3.3.2</version>
                 <configuration>
-                    <scalaVersion>2.11.12</scalaVersion>
-                    <scalaCompatVersion>2.11</scalaCompatVersion>
+                    <scalaVersion>2.12.8</scalaVersion>
+                    <scalaCompatVersion>2.12</scalaCompatVersion>
                 </configuration>
 
                 <executions>
